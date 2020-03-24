@@ -63,8 +63,7 @@ import Development.IDE.Core.Debouncer
 import Development.IDE.Core.IdeState.Daml
 import Development.IDE.Core.RuleTypes.Daml (GetParsedModule(..))
 import Development.IDE.Core.Rules
-import Development.IDE.Core.Rules.Daml (getDalf, getDlintIdeas)
-import Development.IDE.Core.Service (runActionSync)
+import Development.IDE.Core.Rules.Daml (getDlintIdeas)
 import Development.IDE.Core.Shake
 import Development.IDE.GHC.Util (hscEnv, moduleImportPath)
 import Development.IDE.Types.Location
