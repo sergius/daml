@@ -164,7 +164,6 @@ class JdbcIndexer private[indexer] (
     lastReceivedOffset = offset.toApiString
     lastReceivedRecordTime = update.recordTime.toInstant.toEpochMilli
 
-    val externalOffset = offset
     val result = update match {
       case PartyAddedToParticipant(
           party,
@@ -174,7 +173,7 @@ class JdbcIndexer private[indexer] (
           submissionId) =>
         ledgerDao
           .storePartyEntry(
-            externalOffset,
+            offset,
             PartyLedgerEntry.AllocationAccepted(
               submissionId,
               hostingParticipantId,
@@ -190,7 +189,7 @@ class JdbcIndexer private[indexer] (
           rejectionReason) =>
         ledgerDao
           .storePartyEntry(
-            externalOffset,
+            offset,
             PartyLedgerEntry.AllocationRejected(
               submissionId,
               hostingParticipantId,
@@ -212,7 +211,7 @@ class JdbcIndexer private[indexer] (
             PackageLedgerEntry.PackageUploadAccepted(submissionId, recordTimeInstant))
         ledgerDao
           .storePackageEntry(
-            externalOffset,
+            offset,
             packages,
             optEntry
           )
@@ -226,7 +225,7 @@ class JdbcIndexer private[indexer] (
           )
         ledgerDao
           .storePackageEntry(
-            externalOffset,
+            offset,
             List.empty,
             Some(entry)
           )
@@ -238,40 +237,29 @@ class JdbcIndexer private[indexer] (
           transactionId,
           recordTime,
           divulgedContracts) =>
-        val blindingInfo = Blinding.blind(transaction)
+        val asyncResult =
+          ledgerDao.storeTransaction(
+            submitterInfo = optSubmitterInfo,
+            workflowId = transactionMeta.workflowId,
+            transactionId = transactionId,
+            ledgerEffectiveTime = transactionMeta.ledgerEffectiveTime.toInstant,
+            offset = offset,
+            transaction = transaction,
+            divulged = divulgedContracts,
+          )
 
-        val mappedDisclosure = blindingInfo.disclosure.map {
-          case (nodeId, parties) =>
-            EventIdFormatter.fromTransactionId(transactionId, nodeId) -> parties
-        }
-
-        // local blinding info only contains values on transactions with relative contractIds.
-        // this does not happen here (see type of transaction: GenTransaction.WithTxValue[NodeId, Value.AbsoluteContractId])
-        assert(blindingInfo.localDivulgence.isEmpty)
-
-        val pt = PersistenceEntry.Transaction(
-          LedgerEntry.Transaction(
-            optSubmitterInfo.map(_.commandId),
-            transactionId,
-            optSubmitterInfo.map(_.applicationId),
-            optSubmitterInfo.map(_.submitter),
-            transactionMeta.workflowId,
-            transactionMeta.ledgerEffectiveTime.toInstant,
-            recordTime.toInstant,
-            transaction
-              .mapNodeId(EventIdFormatter.fromTransactionId(transactionId, _)),
-            mappedDisclosure
-          ),
-          blindingInfo.globalDivulgence,
-          divulgedContracts.map(c => c.contractId -> c.contractInst)
-        )
-        ledgerDao
-          .storeLedgerEntry(externalOffset, pt)
+        asyncResult.map { result =>
+          for (failure <- result.left; submitterInfo <- optSubmitterInfo) {
+            handleStateUpdate(
+              offset,
+              CommandRejected(recordTime, submitterInfo, failure.iterator.next)) // FIXME :sadpanda:
+          }
+        }(DEC)
 
       case config: ConfigurationChanged =>
         ledgerDao
           .storeConfigurationEntry(
-            externalOffset,
+            offset,
             config.recordTime.toInstant,
             config.submissionId,
             config.participantId,
@@ -282,7 +270,7 @@ class JdbcIndexer private[indexer] (
       case configRejection: ConfigurationChangeRejected =>
         ledgerDao
           .storeConfigurationEntry(
-            externalOffset,
+            offset,
             configRejection.recordTime.toInstant,
             configRejection.submissionId,
             configRejection.participantId,
@@ -301,7 +289,7 @@ class JdbcIndexer private[indexer] (
           )
         )
         ledgerDao
-          .storeLedgerEntry(externalOffset, rejection)
+          .storeLedgerEntry(offset, rejection)
     }
     result.map(_ => ())(DEC)
   }

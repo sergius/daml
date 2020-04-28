@@ -131,8 +131,6 @@ class MeteredLedgerReadDao(ledgerDao: LedgerReadDao, metrics: MetricRegistry)
       endInclusive: Offset): Source[(Offset, ConfigurationEntry), NotUsed] =
     ledgerDao.getConfigurationEntries(startExclusive, endInclusive)
 
-  override val completions: CommandCompletionsReader[Offset] = ledgerDao.completions
-
   override def deduplicateCommand(
       commandId: CommandId,
       submitter: Ref.Party,
@@ -220,5 +218,4 @@ class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: MetricRegistry)
   ): Future[PersistenceResponse] =
     Timed.future(Metrics.storePackageEntry, ledgerDao.storePackageEntry(offset, packages, entry))
 
-  override def transactionsWriter: TransactionsWriter = ledgerDao.transactionsWriter
 }

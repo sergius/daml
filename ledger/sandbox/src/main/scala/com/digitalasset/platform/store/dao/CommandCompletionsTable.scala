@@ -3,15 +3,17 @@
 
 package com.daml.platform.store.dao
 
+import java.time.Instant
+
 import anorm.{Row, RowParser, SimpleSql, SqlParser, SqlStringInterpolation, ~}
-import com.daml.ledger.participant.state.v1.Offset
+import com.daml.ledger.participant.state.v1.{Offset, SubmitterInfo, TransactionId}
 import com.daml.lf.data.Ref
-import com.daml.ledger.ApplicationId
+import com.daml.ledger.{ApplicationId, CommandId}
 import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v1.completion.Completion
-import com.daml.platform.store.CompletionFromTransaction.{toApiCheckpoint, toErrorCode}
+import com.daml.lf.data.Ref.Party
+import com.daml.platform.store.CompletionFromTransaction.toApiCheckpoint
 import com.daml.platform.store.Conversions._
-import com.daml.platform.store.entries.LedgerEntry
 import com.google.rpc.status.Status
 
 object CommandCompletionsTable {
@@ -69,35 +71,25 @@ object CommandCompletionsTable {
             (
               (application_id is null and submitting_party is null)
               or
-              (application_id = ${applicationId: String} and submitting_party in (${parties
-      .asInstanceOf[Set[String]]}))
+              (application_id = $applicationId and submitting_party in ($parties))
             )
           order by completion_offset asc"""
 
-  // The insert will be prepared only if this entry contains all the information
-  // necessary to be rendered as part of the completion service
-  def prepareInsert(offset: Offset, entry: LedgerEntry): Option[SimpleSql[Row]] =
-    entry match {
-      case LedgerEntry.Transaction(
-          Some(cmdId),
-          txId,
-          Some(appId),
-          Some(submitter),
-          _,
-          _,
-          recordTime,
-          _,
-          _) =>
-        Some(
-          SQL"""insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, transaction_id)
-                values ($offset, $recordTime, ${appId: String}, ${submitter: String}, ${cmdId: String}, ${txId: String})""")
-      case LedgerEntry.Rejection(recordTime, cmdId, appId, submitter, reason) =>
-        val code = toErrorCode(reason).value()
-        Some(
-          SQL"""insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, status_code, status_message)
-                values ($offset, $recordTime, ${appId: String}, ${submitter: String}, ${cmdId: String}, $code, ${reason.description})""")
-      case _ =>
-        None
-    }
+  def prepareCompletionInsert(
+      submitterInfo: SubmitterInfo,
+      offset: Offset,
+      transactionId: TransactionId,
+      ledgerEffectiveTime: Instant,
+  ): SimpleSql[Row] =
+    SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, transaction_id) values ($offset, $ledgerEffectiveTime, ${submitterInfo.applicationId}, ${submitterInfo.submitter}, ${submitterInfo.commandId}, $transactionId)"
+
+  def prepareRejectionInsert(
+      submitterInfo: SubmitterInfo,
+      offset: Offset,
+      ledgerEffectiveTime: Instant,
+      statusCode: Int,
+      statusMessage: String,
+  ): SimpleSql[Row] =
+    SQL"insert into participant_command_completions(completion_offset, record_time, application_id, submitting_party, command_id, status_code, status_message) values ($offset, $ledgerEffectiveTime, ${submitterInfo.applicationId}, ${submitterInfo.submitter}, ${submitterInfo.commandId}, $statusCode, $statusMessage)"
 
 }

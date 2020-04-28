@@ -25,7 +25,7 @@ import com.daml.lf.archive.Decode
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageId, Party}
 import com.daml.lf.data.Relation.Relation
-import com.daml.lf.transaction.Node
+import com.daml.lf.transaction.{GenTransaction, Node, Transaction}
 import com.daml.lf.transaction.Node.GlobalKey
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{AbsoluteContractId, ContractInst, NodeId}
@@ -41,7 +41,9 @@ import com.daml.ledger.api.domain.{
   TransactionFilter
 }
 import com.daml.ledger.api.health.HealthStatus
+import com.daml.ledger.participant.state.v1
 import com.daml.ledger.{ApplicationId, CommandId, EventId, WorkflowId}
+import com.daml.lf.transaction.GenTransaction.WithTxValue
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.ApiOffset.ApiOffsetConverter
 import com.daml.platform.configuration.ServerRole
@@ -51,7 +53,12 @@ import com.daml.platform.store.Conversions._
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store._
 import com.daml.platform.store.dao.JdbcLedgerDao.{H2DatabaseQueries, PostgresQueries}
-import com.daml.platform.store.dao.events.{ContractsReader, TransactionsReader, TransactionsWriter}
+import com.daml.platform.store.dao.events.{
+  ContractsReader,
+  PostCommitValidation,
+  TransactionsReader,
+  TransactionsWriter
+}
 import com.daml.platform.store.entries.LedgerEntry.Transaction
 import com.daml.platform.store.entries.{
   ConfigurationEntry,
@@ -106,9 +113,7 @@ private final case class ParsedCommandData(deduplicateUntil: Instant)
 private class JdbcLedgerDao(
     override val maxConcurrentConnections: Int,
     dbDispatcher: DbDispatcher,
-    contractSerializer: ContractSerializer,
-    transactionSerializer: TransactionSerializer,
-    keyHasher: KeyHasher,
+    postCommitValidation: PostCommitValidation,
     dbType: DbType,
     executionContext: ExecutionContext,
     eventsPageSize: Int,
@@ -894,6 +899,40 @@ private class JdbcLedgerDao(
   private def splitOrThrow(id: EventId): NodeId =
     split(id).fold(sys.error(s"Illegal format for event identifier $id"))(_.nodeId)
 
+  override def storeTransaction(
+      submitterInfo: Option[SubmitterInfo],
+      workflowId: Option[WorkflowId],
+      transactionId: TransactionId,
+      ledgerEffectiveTime: Instant,
+      offset: Offset,
+      transaction: CommittedTransaction,
+      divulged: Iterable[DivulgedContract])
+    : Future[Either[Set[RejectionReason], Unit]] =
+    dbDispatcher
+      .executeSql("store_ledger_entry") { implicit conn =>
+        val validation =
+          postCommitValidation.validate(
+            transaction = transaction,
+            transactionLedgerEffectiveTime = ledgerEffectiveTime,
+            divulged = divulged.iterator.map(_.contractId).toSet,
+            submitter = submitterInfo.map(_.submitter), // FIXME :sadpanda:
+          )
+        if (validation.nonEmpty) {
+          Left(validation)
+        } else {
+          transactionsWriter.write(
+            submitterInfo = submitterInfo,
+            workflowId = workflowId,
+            transactionId = transactionId,
+            ledgerEffectiveTime = ledgerEffectiveTime,
+            offset = offset,
+            transaction = transaction,
+            divulgedContracts = divulged,
+          )
+          Right(updateLedgerEnd(offset))
+        }
+      }
+
   //TODO: test it for failures..
   override def storeLedgerEntry(
       offset: Offset,
@@ -1501,23 +1540,23 @@ private class JdbcLedgerDao(
       val _ = SQL(queries.SQL_TRUNCATE_TABLES).execute()
     }
 
-  override val transactionsWriter: TransactionsWriter =
+  private val transactionsWriter: TransactionsWriter =
     new TransactionsWriter(dbType)
 
-  override val transactionsReader: TransactionsReader =
+  private val transactionsReader: TransactionsReader =
     new TransactionsReader(dbDispatcher, executionContext, eventsPageSize)
 
   private val contractsReader: ContractsReader =
     ContractsReader(dbDispatcher, executionContext, dbType)
+
+  private val completions: CommandCompletionsReader =
+    new CommandCompletionsReader(dbDispatcher)
 
   private def executeBatchSql(query: String, params: Iterable[Seq[NamedParameter]])(
       implicit con: Connection) = {
     require(params.nonEmpty, "batch sql statement must have at least one set of name parameters")
     BatchSql(query, params.head, params.drop(1).toArray: _*).execute()
   }
-
-  override val completions: CommandCompletionsReader[Offset] =
-    CommandCompletionsReader(dbDispatcher)
 }
 
 object JdbcLedgerDao {
