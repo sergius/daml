@@ -12,9 +12,12 @@ import com.daml.ledger.test_stable.Test.DummyWithParam._
 import com.daml.ledger.test_stable.Test.{Delegated, Delegation, Dummy, DummyWithParam}
 import io.grpc.Status.Code
 
+import scala.concurrent.ExecutionContext
+
 final class WronglyTypedContractId(session: LedgerSession) extends LedgerTestSuite(session) {
   test("WTExerciseFails", "Exercising on a wrong type fails", allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val _: ExecutionContext = ec
       for {
         dummy <- ledger.create(party, Dummy(party))
         fakeDummyWithParam = dummy.asInstanceOf[Primitive.ContractId[DummyWithParam]]
@@ -27,7 +30,8 @@ final class WronglyTypedContractId(session: LedgerSession) extends LedgerTestSui
   }
 
   test("WTFetchFails", "Fetching of the wrong type fails", allocate(TwoParties)) {
-    case Participants(Participant(ledger, owner, delegate)) =>
+    case (Participants(Participant(ledger, owner, delegate)), ec) =>
+      implicit val _: ExecutionContext = ec
       for {
         dummy <- ledger.create(owner, Dummy(owner))
         fakeDelegated = dummy.asInstanceOf[Primitive.ContractId[Delegated]]

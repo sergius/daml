@@ -15,6 +15,8 @@ import com.daml.ledger.client.binding
 import com.daml.ledger.test.SemanticTests.{Amount, Iou}
 import io.grpc.Status
 
+import scala.concurrent.ExecutionContext
+
 class ClosedWorld(session: LedgerSession) extends LedgerTestSuite(session) {
 
   private[this] val onePound = Amount(BigDecimal(1), "GBP")
@@ -28,7 +30,8 @@ class ClosedWorld(session: LedgerSession) extends LedgerTestSuite(session) {
     "Cannot execute a transaction that references unallocated observer parties",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(alpha, payer)) =>
+    case (Participants(Participant(alpha, payer)), ec) =>
+      implicit val _: ExecutionContext = ec
       for {
         failure <- alpha
           .create(payer, Iou(payer, binding.Primitive.Party("unallocated"), onePound))

@@ -13,8 +13,8 @@ final class LedgerTestCase(
     val description: String,
     val timeoutScale: Double,
     participants: ParticipantAllocation,
-    runTestCase: Participants => Future[Unit],
+    runTestCase: (Participants, ExecutionContext) => Future[Unit],
 ) {
-  def apply(context: LedgerTestContext)(implicit ec: ExecutionContext): Future[Unit] =
-    context.allocate(participants).flatMap(runTestCase)
+  def run(context: LedgerTestContext)(implicit ec: ExecutionContext): Future[Unit] =
+    context.allocate(participants).flatMap(p => runTestCase(p, ec))
 }

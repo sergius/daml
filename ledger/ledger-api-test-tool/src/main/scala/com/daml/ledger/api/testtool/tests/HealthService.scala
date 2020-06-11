@@ -8,9 +8,12 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import io.grpc.health.v1.health.HealthCheckResponse
 
+import scala.concurrent.ExecutionContext
+
 class HealthService(session: LedgerSession) extends LedgerTestSuite(session) {
   test("HScheck", "The Health.Check endpoint reports everything is well", allocate(NoParties)) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         health <- ledger.checkHealth()
       } yield {
@@ -19,7 +22,8 @@ class HealthService(session: LedgerSession) extends LedgerTestSuite(session) {
   }
 
   test("HSwatch", "The Health.Watch endpoint reports everything is well", allocate(NoParties)) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         healthSeq <- ledger.watchHealth()
       } yield {

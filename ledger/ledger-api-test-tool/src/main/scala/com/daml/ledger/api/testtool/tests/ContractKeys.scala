@@ -22,13 +22,16 @@ import com.daml.ledger.test_stable.Test._
 import io.grpc.Status
 import scalaz.Tag
 
+import scala.concurrent.ExecutionContext
+
 final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "CKFetchOrLookup",
     "Divulged contracts cannot be fetched or looked up by key by non-stakeholders",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
+    case (Participants(Participant(alpha, owner), Participant(beta, delegate)), ec) =>
+      implicit val e: ExecutionContext = ec
       val key = s"${UUID.randomUUID.toString}-key"
       for {
         // create contracts to work with
@@ -67,7 +70,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
     "Contract Keys should reject fetching an undisclosed contract",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, owner), Participant(beta, delegate)) =>
+    case (Participants(Participant(alpha, owner), Participant(beta, delegate)), ec) =>
+      implicit val e: ExecutionContext = ec
       val key = s"${UUID.randomUUID.toString}-key"
       for {
         // create contracts to work with
@@ -110,7 +114,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
     "Contract keys should be scoped by maintainer",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    case (Participants(Participant(alpha, alice), Participant(beta, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       val keyPrefix = UUID.randomUUID.toString
       val key1 = s"$keyPrefix-some-key"
       val key2 = s"$keyPrefix-some-other-key"
@@ -189,7 +194,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
   }
 
   test("CKRecreate", "Contract keys can be recreated in single transaction", allocate(SingleParty)) {
-    case Participants(Participant(ledger, owner)) =>
+    case (Participants(Participant(ledger, owner)), ec) =>
+      implicit val e: ExecutionContext = ec
       val key = s"${UUID.randomUUID.toString}-key"
       for {
         delegated1TxTree <- ledger
@@ -220,7 +226,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
     "Contract keys created by transient contracts are properly archived",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, owner)) =>
+    case (Participants(Participant(ledger, owner)), ec) =>
+      implicit val e: ExecutionContext = ec
       val key = s"${UUID.randomUUID.toString}-key"
       val key2 = s"${UUID.randomUUID.toString}-key"
 
@@ -248,7 +255,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
     "The contract key should be exposed if the template specifies one",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val expectedKey = "some-fancy-key"
       for {
         _ <- ledger.create(party, TextKey(party, expectedKey, List.empty))
@@ -271,7 +279,8 @@ final class ContractKeys(session: LedgerSession) extends LedgerTestSuite(session
     "Exercising by key should be possible only when the corresponding contract is available",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val keyString = UUID.randomUUID.toString
       val expectedKey = Value(
         Value.Sum.Record(

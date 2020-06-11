@@ -13,7 +13,7 @@ import com.daml.ledger.api.v1.transaction.Transaction
 import com.daml.ledger.client.binding.Primitive.{ContractId, Party}
 import com.daml.ledger.test_stable.Test.WithObservers
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(session) {
   type Parties = Set[Party]
@@ -35,7 +35,8 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     allocation,
     timeoutScale,
   ) {
-    case TestParticipants(t) =>
+    case (TestParticipants(t), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
         _ <- synchronize(t.alpha, t.beta)
@@ -61,7 +62,8 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     allocation,
     timeoutScale,
   ) {
-    case TestParticipants(t) =>
+    case (TestParticipants(t), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
         _ <- synchronize(t.alpha, t.beta)
@@ -87,7 +89,8 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     allocation,
     timeoutScale,
   ) {
-    case TestParticipants(t) =>
+    case (TestParticipants(t), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
         _ <- synchronize(t.alpha, t.beta)
@@ -113,7 +116,8 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
     allocation,
     timeoutScale,
   ) {
-    case TestParticipants(t) =>
+    case (TestParticipants(t), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         contractId <- t.alpha.create(t.giver, WithObservers(t.giver, t.observers))
         _ <- synchronize(t.alpha, t.beta)
@@ -128,7 +132,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
   private def transactionsForEachParty(
       ledger: ParticipantTestContext,
       observers: Vector[Party],
-  ): Future[PartyMap[Vector[Transaction]]] = {
+  )(implicit ec: ExecutionContext): Future[PartyMap[Vector[Transaction]]] = {
     Future
       .sequence(observers.map(observer => ledger.flatTransactions(observer).map(observer -> _)))
       .map(_.toMap)
@@ -137,7 +141,7 @@ final class LotsOfParties(session: LedgerSession) extends LedgerTestSuite(sessio
   private def activeContractsForEachParty(
       ledger: ParticipantTestContext,
       observers: Vector[Party],
-  ): Future[PartyMap[Vector[CreatedEvent]]] = {
+  )(implicit ec: ExecutionContext): Future[PartyMap[Vector[CreatedEvent]]] = {
     Future
       .sequence(observers.map(observer => ledger.activeContracts(observer).map(observer -> _)))
       .map(_.toMap)

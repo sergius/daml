@@ -8,13 +8,16 @@ import com.daml.ledger.api.testtool.infrastructure.Assertions._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 import io.grpc.Status
 
+import scala.concurrent.ExecutionContext
+
 final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
 
   /** A package ID that is guaranteed to not be uploaded */
   private[this] val unknownPackageId = " "
 
   test("PackagesList", "Listing packages should return a result", allocate(NoParties)) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         knownPackages <- ledger.listPackages()
       } yield
@@ -25,7 +28,8 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
   }
 
   test("PackagesGet", "Getting package content should return a valid result", allocate(NoParties)) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         somePackageId <- ledger.listPackages().map(_.headOption.getOrElse(fail("No package found")))
         somePackage <- ledger.getPackage(somePackageId)
@@ -44,7 +48,8 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
     "Getting package content for an unknown package should fail",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.getPackage(unknownPackageId).failed
       } yield {
@@ -53,7 +58,8 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
   }
 
   test("PackagesStatus", "Getting package status should return a valid result", allocate(NoParties)) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         somePackageId <- ledger.listPackages().map(_.headOption.getOrElse(fail("No package found")))
         status <- ledger.getPackageStatus(somePackageId)
@@ -67,7 +73,8 @@ final class Packages(session: LedgerSession) extends LedgerTestSuite(session) {
     "Getting package status for an unknown package should fail",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         status <- ledger.getPackageStatus(unknownPackageId)
       } yield {

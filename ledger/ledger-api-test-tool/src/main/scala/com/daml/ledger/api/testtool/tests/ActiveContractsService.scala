@@ -24,13 +24,16 @@ import com.daml.ledger.test_stable.Test.{
 import io.grpc.Status
 import scalaz.syntax.tag._
 
+import scala.concurrent.ExecutionContext
+
 class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "ACSinvalidLedgerId",
     "The ActiveContractService should fail for requests with an invalid ledger identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, parties @ _*)) =>
+    case (Participants(Participant(ledger, parties @ _*)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "ACSinvalidLedgerId"
       val invalidRequest = ledger
         .activeContractsRequest(parties)
@@ -47,7 +50,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     "The ActiveContractService should succeed with an empty response if no contracts have been created for a party",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         activeContracts <- ledger.activeContracts(party)
       } yield {
@@ -63,7 +67,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     "The ActiveContractService should return all active contracts",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         (dummy, dummyWithParam, dummyFactory) <- createDummyContracts(party, ledger)
         activeContracts <- ledger.activeContracts(party)
@@ -105,7 +110,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     "The ActiveContractService should return contracts filtered by templateId",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         (dummy, _, _) <- createDummyContracts(party, ledger)
         activeContracts <- ledger.activeContractsByTemplateId(Seq(Dummy.id.unwrap), party)
@@ -131,7 +137,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     "The ActiveContractService does not return archived contracts",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         (dummy, _, _) <- createDummyContracts(party, ledger)
         contractsBeforeExercise <- ledger.activeContracts(party)
@@ -169,7 +176,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     "The ActiveContractService should return a usable offset to resume streaming transactions",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- ledger.create(party, Dummy(party))
         (Some(offset), onlyDummy) <- ledger.activeContracts(
@@ -212,7 +220,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     "The ActiveContractService should emit field names only if the verbose flag is set to true",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- ledger.create(party, Dummy(party))
         verboseRequest = ledger.activeContractsRequest(Seq(party)).update(_.verbose := true)
@@ -239,7 +248,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     "The ActiveContractsService should return contracts for the requesting parties",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- createDummyContracts(alice, ledger)
         _ <- createDummyContracts(bob, ledger)
@@ -296,7 +306,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     "The ActiveContractService should properly fill the agreementText field",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummyCid <- ledger.create(party, Dummy(party))
         dummyWithParamCid <- ledger.create(party, DummyWithParam(party))
@@ -326,7 +337,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     "The ActiveContractService should properly fill the eventId field",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- ledger.create(party, Dummy(party))
         Vector(dummyEvent) <- ledger.activeContracts(party)
@@ -345,7 +357,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     "The ActiveContractService should not return witnessed contracts",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         witnesses <- ledger.create(alice, TestWitnesses(alice, bob, bob))
         _ <- ledger.exercise(bob, witnesses.exerciseWitnessesCreateNewWitnesses(_))
@@ -368,7 +381,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
     "The ActiveContractService should not return divulged contracts",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
         divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
@@ -387,7 +401,8 @@ class ActiveContractsService(session: LedgerSession) extends LedgerTestSuite(ses
       }
   }
 
-  private def createDummyContracts(party: Party, ledger: ParticipantTestContext) = {
+  private def createDummyContracts(party: Party, ledger: ParticipantTestContext)(
+      implicit ec: ExecutionContext) = {
     for {
       dummy <- ledger.create(party, Dummy(party))
       dummyWithParam <- ledger.create(party, DummyWithParam(party))

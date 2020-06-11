@@ -9,9 +9,12 @@ import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSui
 import com.daml.ledger.test_stable.Test.Dummy
 import io.grpc.Status
 
+import scala.concurrent.ExecutionContext
+
 class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite(session) {
   test("ConfigSucceeds", "Return a valid configuration for a valid request", allocate(NoParties)) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val _: ExecutionContext = ec
       for {
         config <- ledger.configuration()
       } yield {
@@ -22,7 +25,8 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
   }
 
   test("ConfigLedgerId", "Return NOT_FOUND to invalid ledger identifier", allocate(NoParties)) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val _: ExecutionContext = ec
       val invalidLedgerId = "THIS_IS_AN_INVALID_LEDGER_ID"
       for {
         failure <- ledger.configuration(overrideLedgerId = Some(invalidLedgerId)).failed
@@ -36,7 +40,8 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
     "Submission returns OK if deduplication time is within the accepted interval",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val _: ExecutionContext = ec
       // Submission using the maximum allowed deduplication time
       val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
@@ -53,7 +58,8 @@ class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite
     "Submission returns OK if deduplication time is too high",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val _: ExecutionContext = ec
       val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
         config <- ledger.configuration()

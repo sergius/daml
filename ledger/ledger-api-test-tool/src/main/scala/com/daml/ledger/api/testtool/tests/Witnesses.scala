@@ -9,9 +9,12 @@ import com.daml.ledger.test_stable.Test.Witnesses._
 import com.daml.ledger.test_stable.Test.{DivulgeWitnesses, Witnesses => WitnessesTemplate}
 import scalaz.Tag
 
+import scala.concurrent.ExecutionContext
+
 final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
   test("RespectDisclosureRules", "The ledger should respect disclosure rules", allocate(Parties(3))) {
-    case Participants(Participant(ledger, alice, bob, charlie)) =>
+    case (Participants(Participant(ledger, alice, bob, charlie)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         // Create the Witnesses contract as Alice and get the resulting transaction as seen by all parties
         (witnessesTransactionId, witnesses) <- ledger.createAndGetTransactionId(

@@ -36,7 +36,7 @@ import io.grpc.Status
 import scalaz.Tag
 
 import scala.collection.mutable
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 class TransactionService(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
@@ -44,7 +44,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "An empty stream should be served when getting transactions from and to the beginning of the ledger",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.getTransactionsRequest(Seq(party))
       val fromAndToBegin = request.update(_.begin := ledger.begin, _.end := ledger.begin)
       for {
@@ -62,7 +63,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "An empty stream of trees should be served when getting transactions from and to the beginning of the ledger",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.getTransactionsRequest(Seq(party))
       val fromAndToBegin = request.update(_.begin := ledger.begin, _.end := ledger.begin)
       for {
@@ -80,7 +82,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "An empty stream should be served when getting transactions from and to the end of the ledger",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- ledger.create(party, Dummy(party))
         request = ledger.getTransactionsRequest(Seq(party))
@@ -99,7 +102,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Items should be served until the client cancels",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val transactionsToSubmit = 14
       val transactionsToRead = 10
       for {
@@ -124,7 +128,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Trees should be served until the client cancels",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val transactionsToSubmit = 14
       val treesToRead = 10
       for {
@@ -149,10 +154,13 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Trees should be served according to the blinding/projection rules",
     allocate(TwoParties, SingleParty, SingleParty)
   ) {
-    case Participants(
-        Participant(alpha, alice, gbp_bank),
-        Participant(beta, bob),
-        Participant(delta, dkk_bank)) =>
+    case (
+        Participants(
+          Participant(alpha, alice, gbp_bank),
+          Participant(beta, bob),
+          Participant(delta, dkk_bank)),
+        ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         gbpIouIssue <- alpha.create(gbp_bank, Iou(gbp_bank, gbp_bank, "GBP", 100, Nil))
         gbpTransfer <- alpha.exerciseAndGetContract(
@@ -238,7 +246,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "A query with an empty transaction filter should be rejected with an INVALID_ARGUMENT status",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.getTransactionsRequest(Seq(party))
       val requestWithEmptyFilter = request.update(_.filter.filtersByParty := Map.empty)
       for {
@@ -253,7 +262,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "A stream should complete as soon as the ledger end is hit",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val transactionsToSubmit = 14
       val transactionsFuture = ledger.flatTransactions(party)
       for {
@@ -269,7 +279,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "A stream of trees should complete as soon as the ledger end is hit",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val transactionsToSubmit = 14
       val transactionsFuture = ledger.transactionTrees(party)
       for {
@@ -285,7 +296,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Serve the complete sequence of transactions even if processing is stopped and resumed",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val transactionsToSubmit = 5
       for {
         _ <- Future.sequence(Vector.fill(transactionsToSubmit)(ledger.create(party, Dummy(party))))
@@ -318,7 +330,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The same data should be served for more than 1 identical, parallel requests",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val transactionsToSubmit = 5
       val parallelRequests = 10
       for {
@@ -338,7 +351,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Data should not be exposed to parties unrelated to a transaction",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, alice), Participant(_, bob)) =>
+    case (Participants(Participant(alpha, alice), Participant(_, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- alpha.create(alice, Dummy(alice))
         bobsView <- alpha.flatTransactions(bob)
@@ -355,7 +369,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "A request with the end before the begin should be rejected with INVALID_ARGUMENT",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         earlier <- ledger.currentEnd()
         _ <- ledger.create(party, Dummy(party))
@@ -373,7 +388,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "A transaction should be visible to a non-submitting stakeholder but its command identifier should be empty",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
+    case (Participants(Participant(alpha, submitter), Participant(beta, listener)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         (id, _) <- alpha.createAndGetTransactionId(submitter, AgreementFactory(listener, submitter))
         tree <- eventually { beta.transactionTreeById(id, listener) }
@@ -390,7 +406,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The transaction service should correctly filter by template identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val filterBy = Dummy.id
       val create = ledger.submitAndWaitRequest(
         party,
@@ -411,7 +428,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Should be able to directly use a contract identifier to exercise a choice",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummyFactory <- ledger.create(party, DummyFactory(party))
         transactions <- ledger.exercise(party, dummyFactory.exerciseDummyFactoryCall)
@@ -432,7 +450,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Expose contract identifiers that are results of exercising choices when filtering by template",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         factory <- ledger.create(party, DummyFactory(party))
         _ <- ledger.exercise(party, factory.exerciseDummyFactoryCall)
@@ -464,7 +483,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Reject a transaction on a failing assertion",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- ledger.create(party, Dummy(party))
         failure <- ledger
@@ -484,7 +504,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Creates should not have issues dealing with any type of argument",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val template = ParameterShowcase(
         party,
         42L,
@@ -510,7 +531,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Exercise should not have issues dealing with any type of argument",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val template = ParameterShowcase(
         party,
         42L,
@@ -549,7 +571,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Accept a submission with a very long list (10,000 items)",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val n = 10000
       val veryLongList = Primitive.List(List.iterate(0L, n)(_ + 1): _*)
       val template = ParameterShowcase(
@@ -577,7 +600,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Expressing a non-consuming choice on a contract should not result in its archival",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, receiver), Participant(beta, giver)) =>
+    case (Participants(Participant(alpha, receiver), Participant(beta, giver)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
         _ <- eventually { alpha.exercise(receiver, agreementFactory.exerciseCreateAgreement) }
@@ -596,7 +620,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Require only authorization of chosen branching signatory",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, alice), Participant(_, bob)) =>
+    case (Participants(Participant(alpha, alice), Participant(_, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       val template = BranchingSignatories(true, alice, bob)
       for {
         _ <- alpha.create(alice, template)
@@ -611,7 +636,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Not disclose create to non-chosen branching signatory",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    case (Participants(Participant(alpha, alice), Participant(beta, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       val template = BranchingSignatories(false, alice, bob)
       val create = beta.submitAndWaitRequest(bob, template.create.command)
       for {
@@ -631,7 +657,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Disclose create to the chosen branching controller",
     allocate(SingleParty, TwoParties),
   ) {
-    case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
+    case (Participants(Participant(alpha, alice), Participant(beta, bob, eve)), ec) =>
+      implicit val e: ExecutionContext = ec
       val template = BranchingControllers(alice, true, bob, eve)
       for {
         _ <- alpha.create(alice, template)
@@ -668,7 +695,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Not disclose create to non-chosen branching controller",
     allocate(SingleParty, TwoParties),
   ) {
-    case Participants(Participant(alpha, alice), Participant(beta, bob, eve)) =>
+    case (Participants(Participant(alpha, alice), Participant(beta, bob, eve)), ec) =>
+      implicit val e: ExecutionContext = ec
       val template = BranchingControllers(alice, false, bob, eve)
       val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
@@ -688,7 +716,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Disclose create to observers",
     allocate(SingleParty, TwoParties),
   ) {
-    case Participants(Participant(alpha, alice), Participant(beta, observers @ _*)) =>
+    case (Participants(Participant(alpha, alice), Participant(beta, observers @ _*)), ec) =>
+      implicit val e: ExecutionContext = ec
       val template = WithObservers(alice, Primitive.List(observers: _*))
       val create = alpha.submitAndWaitRequest(alice, template.create.command)
       for {
@@ -710,7 +739,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "DAML engine returns Unit as argument to Nothing",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val template = NothingArgument(party, Primitive.Optional.empty)
       val create = ledger.submitAndWaitRequest(party, template.create.command)
       for {
@@ -726,7 +756,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Expose the agreement text for templates with an explicit agreement text",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- ledger.create(party, Dummy(party))
         transactions <- ledger.flatTransactionsByTemplateId(Dummy.id, party)
@@ -741,7 +772,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Expose the default text for templates without an agreement text",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- ledger.create(party, DummyWithParam(party))
         transactions <- ledger.flatTransactions(party)
@@ -752,7 +784,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   }
 
   test("TXStakeholders", "Expose the correct stakeholders", allocate(SingleParty, SingleParty)) {
-    case Participants(Participant(alpha, receiver), Participant(beta, giver)) =>
+    case (Participants(Participant(alpha, receiver), Participant(beta, giver)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- beta.create(giver, CallablePayout(giver, receiver))
         transactions <- beta.flatTransactions(giver, receiver)
@@ -768,7 +801,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "There should be no contract key if the template does not specify one",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, receiver), Participant(beta, giver)) =>
+    case (Participants(Participant(alpha, receiver), Participant(beta, giver)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- beta.create(giver, CallablePayout(giver, receiver))
         transactions <- beta.flatTransactions(giver, receiver)
@@ -786,7 +820,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Accept exercising a well-authorized multi-actor choice",
     allocate(TwoParties, SingleParty),
   ) {
-    case Participants(Participant(alpha, operator, receiver), Participant(beta, giver)) =>
+    case (Participants(Participant(alpha, operator, receiver), Participant(beta, giver)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
         agreement <- eventually {
@@ -815,7 +850,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Accept exercising a well-authorized multi-actor choice with coinciding controllers",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, operator), Participant(beta, giver)) =>
+    case (Participants(Participant(alpha, operator), Participant(beta, giver)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         agreementFactory <- beta.create(giver, AgreementFactory(giver, giver))
         agreement <- beta
@@ -840,7 +876,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Reject exercising a multi-actor choice with missing authorizers",
     allocate(TwoParties, SingleParty),
   ) {
-    case Participants(Participant(alpha, operator, receiver), Participant(beta, giver)) =>
+    case (Participants(Participant(alpha, operator, receiver), Participant(beta, giver)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         triProposal <- alpha.create(operator, TriProposal(operator, receiver, giver))
         _ <- eventually {
@@ -863,7 +900,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Reject exercising a multi-actor choice with too many authorizers",
     allocate(TwoParties, SingleParty),
   ) {
-    case Participants(Participant(alpha, operator, receiver), Participant(beta, giver)) =>
+    case (Participants(Participant(alpha, operator, receiver), Participant(beta, giver)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         agreementFactory <- beta.create(giver, AgreementFactory(receiver, giver))
         // TODO eventually is a temporary workaround. It should take into account
@@ -891,7 +929,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   }
 
   test("TXNoReorder", "Don't reorder fields in data structures of choices", allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- ledger.create(party, Dummy(party))
         tree <- ledger.exercise(
@@ -914,7 +953,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The same transaction should be served regardless of subscribing as one or multiple parties",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- ledger.create(alice, Dummy(alice))
         _ <- ledger.create(bob, Dummy(bob))
@@ -936,7 +976,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The same transaction trees should be served regardless of subscribing as one or multiple parties",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- ledger.create(alice, Dummy(alice))
         _ <- ledger.create(bob, Dummy(bob))
@@ -958,7 +999,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The same transaction should be served to all stakeholders",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    case (Participants(Participant(alpha, alice), Participant(beta, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- alpha.create(alice, AgreementFactory(bob, alice))
         _ <- beta.create(bob, AgreementFactory(alice, bob))
@@ -979,7 +1021,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The same transaction trees should be served to all stakeholders",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, alice), Participant(beta, bob)) =>
+    case (Participants(Participant(alpha, alice), Participant(beta, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- alpha.create(alice, AgreementFactory(bob, alice))
         _ <- beta.create(bob, AgreementFactory(alice, bob))
@@ -1000,7 +1043,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "It should be possible to fetch a contract created within a transaction",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         createAndFetch <- ledger.create(party, CreateAndFetch(party))
         transaction <- ledger.exerciseForFlatTransaction(
@@ -1024,7 +1068,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The getTransactions endpoint should reject calls with the wrong ledger identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
       val invalidRequest = ledger
         .getTransactionsRequest(Seq(party))
@@ -1041,7 +1086,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The getTransactionTrees endpoint should reject calls with the wrong ledger identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
       val invalidRequest = ledger
         .getTransactionsRequest(Seq(party))
@@ -1058,7 +1104,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The getTransactionTreeById endpoint should reject calls with the wrong ledger identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
       val invalidRequest = ledger
         .getTransactionByIdRequest("not-relevant", Seq(party))
@@ -1075,7 +1122,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The getFlatTransactionById endpoint should reject calls with the wrong ledger identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
       val invalidRequest = ledger
         .getTransactionByIdRequest("not-relevant", Seq(party))
@@ -1092,7 +1140,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The getTransactionTreeByEventId endpoint should reject calls with the wrong ledger identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
       val invalidRequest = ledger
         .getTransactionByEventIdRequest("not-relevant", Seq(party))
@@ -1109,7 +1158,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The getFlatTransactionByEventId endpoint should reject calls with the wrong ledger identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
       val invalidRequest = ledger
         .getTransactionByEventIdRequest("not-relevant", Seq(party))
@@ -1126,7 +1176,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "The ledgerEnd endpoint should reject calls with the wrong ledger identifier",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "DEFINITELY_NOT_A_VALID_LEDGER_IDENTIFIER"
       for {
         failure <- ledger.currentEnd(invalidLedgerId).failed
@@ -1140,7 +1191,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Expose a visible transaction tree by identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- ledger.create(party, Dummy(party))
         tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
@@ -1155,7 +1207,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Do not expose an invisible transaction tree by identifier",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, party), Participant(beta, intruder)) =>
+    case (Participants(Participant(alpha, party), Participant(beta, intruder)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- alpha.create(party, Dummy(party))
         tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
@@ -1171,7 +1224,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Return NOT_FOUND when looking up an inexistent transaction tree by identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.transactionTreeById("a" * 60, party).failed
       } yield {
@@ -1184,7 +1238,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Return INVALID_ARGUMENT when looking up a transaction tree by identifier without specifying a party",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.transactionTreeById("not-relevant").failed
       } yield {
@@ -1197,7 +1252,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Expose the same events for each transaction as the output of getTransactionTrees",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
+    case (Participants(Participant(alpha, submitter), Participant(beta, listener)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- alpha.create(submitter, AgreementFactory(listener, submitter))
         _ <- synchronize(alpha, beta)
@@ -1215,7 +1271,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
   }
 
   test("TXFlatTransactionById", "Expose a visible transaction by identifier", allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- ledger.create(party, Dummy(party))
         transaction <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1)
@@ -1230,7 +1287,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Do not expose an invisible flat transaction by identifier",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, party, intruder)) =>
+    case (Participants(Participant(ledger, party, intruder)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- ledger.create(party, Dummy(party))
         tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
@@ -1245,7 +1303,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Return NOT_FOUND when looking up an inexistent flat transaction by identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.flatTransactionById("a" * 60, party).failed
       } yield {
@@ -1258,7 +1317,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Return INVALID_ARGUMENT when looking up a flat transaction by identifier without specifying a party",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.flatTransactionById("not-relevant").failed
       } yield {
@@ -1271,7 +1331,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Expose the same events for each transaction as the output of getTransactions",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, submitter), Participant(beta, listener)) =>
+    case (Participants(Participant(alpha, submitter), Participant(beta, listener)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         _ <- alpha.create(submitter, AgreementFactory(listener, submitter))
         _ <- synchronize(alpha, beta)
@@ -1293,7 +1354,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Expose a visible transaction tree by event identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- ledger.create(party, Dummy(party))
         tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
@@ -1308,7 +1370,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Do not expose an invisible transaction tree by event identifier",
     allocate(SingleParty, SingleParty),
   ) {
-    case Participants(Participant(alpha, party), Participant(beta, intruder)) =>
+    case (Participants(Participant(alpha, party), Participant(beta, intruder)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- alpha.create(party, Dummy(party))
         tree <- alpha.exercise(party, dummy.exerciseDummyChoice1)
@@ -1324,7 +1387,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Return INVALID when looking up an invalid transaction tree by event identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.transactionTreeByEventId("dont' worry, be happy", party).failed
       } yield {
@@ -1337,7 +1401,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Return NOT_FOUND when looking up an inexistent transaction tree by event identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.transactionTreeByEventId(s"#${"a" * 60}:000", party).failed
       } yield {
@@ -1350,7 +1415,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Return INVALID_ARGUMENT when looking up a transaction tree by event identifier without specifying a party",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.transactionTreeByEventId("not-relevant").failed
       } yield {
@@ -1363,7 +1429,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Expose a visible flat transaction by event identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- ledger.create(party, Dummy(party))
         transaction <- ledger.exerciseForFlatTransaction(party, dummy.exerciseDummyChoice1)
@@ -1380,7 +1447,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Do not expose an invisible flat transaction by event identifier",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, party, intruder)) =>
+    case (Participants(Participant(ledger, party, intruder)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- ledger.create(party, Dummy(party))
         tree <- ledger.exercise(party, dummy.exerciseDummyChoice1)
@@ -1395,7 +1463,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Return INVALID when looking up a flat transaction by an invalid event identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.flatTransactionByEventId("dont' worry, be happy", party).failed
       } yield {
@@ -1408,7 +1477,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Return NOT_FOUND when looking up an inexistent flat transaction by event identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.flatTransactionByEventId(s"#${"a" * 60}:000", party).failed
       } yield {
@@ -1421,7 +1491,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     "Return INVALID_ARGUMENT when looking up a flat transaction by event identifier without specifying a party",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.flatTransactionByEventId("not-relevant").failed
       } yield {
@@ -1481,7 +1552,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     allocate(SingleParty),
     timeoutScale = 2.0,
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val contracts = 50
       for {
         _ <- Future.sequence(
@@ -1503,7 +1575,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     allocate(TwoParties),
     timeoutScale = 2.0,
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       val contracts = 50
       for {
         _ <- Future.sequence(Vector.tabulate(contracts) { n =>
@@ -1524,7 +1597,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     allocate(SingleParty),
     timeoutScale = 2.0,
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val contracts = 50
       for {
         _ <- Future.sequence(
@@ -1555,7 +1629,8 @@ class TransactionService(session: LedgerSession) extends LedgerTestSuite(session
     allocate(SingleParty),
     timeoutScale = 2.0,
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val contracts = 50
       for {
         _ <- Future.sequence(

@@ -13,6 +13,7 @@ import com.daml.ledger.test_stable.Test.Dummy._
 import com.daml.platform.testing.{TimeoutException, WithTimeout}
 import io.grpc.Status
 
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
 final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTestSuite(session) {
@@ -22,7 +23,8 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     "Read completions correctly with a correct application identifier and reading party",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
         _ <- ledger.submit(request)
@@ -42,7 +44,8 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     "Read no completions without the correct application identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
         _ <- ledger.submit(request)
@@ -60,7 +63,8 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     "Read no completions without the correct party",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, party, notTheSubmittingParty)) =>
+    case (Participants(Participant(ledger, party, notTheSubmittingParty)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.submitRequest(party, Dummy(party).create.command)
       for {
         _ <- ledger.submit(request)
@@ -75,7 +79,8 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     "The submission of an exercise of a choice that does not exist should yield INVALID_ARGUMENT",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val badChoice = "THIS_IS_NOT_A_VALID_CHOICE"
       for {
         dummy <- ledger.create(party, Dummy(party))
@@ -97,7 +102,8 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     "Submit should fail for an invalid ledger identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "CSsubmitAndWaitInvalidLedgerId"
       val request = ledger
         .submitRequest(party, Dummy(party).create.command)
@@ -117,7 +123,8 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     "The submission of an empty command should be rejected with INVALID_ARGUMENT",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val emptyRequest = ledger.submitRequest(party)
       for {
         failure <- ledger.submit(emptyRequest).failed
@@ -131,7 +138,8 @@ final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTe
     "Listening for completions should support multi-party subscriptions",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       val a = UUID.randomUUID.toString
       val b = UUID.randomUUID.toString
       val aliceRequest = ledger.submitRequest(alice, Dummy(alice).create.command)

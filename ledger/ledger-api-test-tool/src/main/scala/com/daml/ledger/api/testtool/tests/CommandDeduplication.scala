@@ -15,7 +15,7 @@ import com.daml.timer.Delayed
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
@@ -34,7 +34,8 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
     "Deduplicate commands within the deduplication time window",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val deduplicationSeconds = 5
       val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
       val a = UUID.randomUUID.toString
@@ -82,7 +83,8 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
     "Stop deduplicating commands on submission failure",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       // Do not set the deduplication timeout.
       // The server will default to the maximum possible deduplication timeout.
       val requestA = ledger.submitRequest(alice, Dummy(bob).create.command)
@@ -104,7 +106,8 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
     "Stop deduplicating commands on completion failure",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val key = UUID.randomUUID().toString
       val commandId = UUID.randomUUID().toString
 
@@ -143,7 +146,8 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
     "Deduplicate commands within the deduplication time window using the command client",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val deduplicationSeconds = 5
       val deduplicationTime = Duration.of(deduplicationSeconds.toLong, 0)
       val a = UUID.randomUUID.toString
@@ -184,7 +188,8 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
     "Commands with identical submitter and command identifier should be deduplicated by the submission client",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       val aliceRequest = ledger.submitRequest(alice, Dummy(alice).create.command)
       val bobRequest = ledger
         .submitRequest(bob, Dummy(bob).create.command)
@@ -225,7 +230,8 @@ final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite
     "Commands with identical submitter and command identifier should be deduplicated by the command client",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       val aliceRequest = ledger.submitAndWaitRequest(alice, Dummy(alice).create.command)
       val bobRequest = ledger
         .submitAndWaitRequest(bob, Dummy(bob).create.command)

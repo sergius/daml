@@ -82,7 +82,6 @@ trait PerformanceEnvelope {
   def logger: Logger
   def envelope: Envelope
   def maxInflight: Int
-  protected implicit def ec: ExecutionContext
 
   protected def waitForParties(participants: Seq[Allocation.Participant]): Unit = {
     val (participantAlice, alice) = (participants.head.ledger, participants.head.parties.head)
@@ -112,7 +111,7 @@ trait PerformanceEnvelope {
       from: Participant,
       to: Participant,
       workflowIds: List[String],
-      payload: String): Future[(Duration, List[Duration])] = {
+      payload: String)(implicit ec: ExecutionContext): Future[(Duration, List[Duration])] = {
 
     val (participantAlice, alice) = (from.ledger, from.parties.head)
     val (participantBob, bob) = (to.ledger, to.parties.head)
@@ -201,7 +200,8 @@ trait PerformanceEnvelope {
       numPings: Int,
       queue: ConcurrentLinkedQueue[Promise[Unit]],
       inflight: AtomicInteger,
-      timings: TrieMap[String, Either[Instant, Duration]]): Future[Either[String, Unit]] = {
+      timings: TrieMap[String, Either[Instant, Duration]])(
+      implicit ec: ExecutionContext): Future[Either[String, Unit]] = {
 
     val observed = new AtomicInteger(0)
     val context = Context.ROOT.withCancellation()
@@ -283,7 +283,7 @@ trait PerformanceEnvelope {
       tracker: Promise[Either[String, Unit]],
       sender: ParticipantTestContext,
       party: P.Party,
-      offset: Option[LedgerOffset]): Unit = {
+      offset: Option[LedgerOffset])(implicit ec: ExecutionContext): Unit = {
     val context = Context.ROOT.withCancellation()
 
     context.run(
@@ -351,30 +351,32 @@ object PerformanceEnvelope {
       "perf-envelope-throughput",
       s"Verify that ledger passes the ${envelope.name} throughput envelope",
       allocate(SingleParty, SingleParty),
-    ) { participants =>
-      waitForParties(participants.participants)
+    ) {
+      case (participants, ec) =>
+        implicit val e: ExecutionContext = ec
+        waitForParties(participants.participants)
 
-      def runTest(num: Int, description: String): Future[(Duration, List[Duration])] =
-        sendPings(
-          from = participants.participants.head,
-          to = participants.participants(1),
-          workflowIds = (1 to num).map(x => s"$description-$x").toList,
-          payload = description)
-      for {
-        _ <- runTest(numWarmupPings, "throughput-warmup")
-        timings <- runTest(numPings, "throughput-test")
-      } yield {
-        val (elapsed, latencies) = timings
-        val throughput = numPings / elapsed.toMillis.toDouble * 1000.0
-        logger.info(
-          s"Sending of $numPings succeeded after $elapsed, yielding a throughput of ${"%.2f" format throughput}.")
-        reporter("rate", throughput)
-        logger.info(
-          s"Throughput latency stats: ${genStats(latencies.map(_.toMillis), (_, _) => ())}")
-        assert(
-          throughput >= envelope.throughput,
-          s"Observed throughput of ${"%.2f" format throughput} is below the necessary envelope level ${envelope.throughput}")
-      }
+        def runTest(num: Int, description: String): Future[(Duration, List[Duration])] =
+          sendPings(
+            from = participants.participants.head,
+            to = participants.participants(1),
+            workflowIds = (1 to num).map(x => s"$description-$x").toList,
+            payload = description)
+        for {
+          _ <- runTest(numWarmupPings, "throughput-warmup")
+          timings <- runTest(numPings, "throughput-test")
+        } yield {
+          val (elapsed, latencies) = timings
+          val throughput = numPings / elapsed.toMillis.toDouble * 1000.0
+          logger.info(
+            s"Sending of $numPings succeeded after $elapsed, yielding a throughput of ${"%.2f" format throughput}.")
+          reporter("rate", throughput)
+          logger.info(
+            s"Throughput latency stats: ${genStats(latencies.map(_.toMillis), (_, _) => ())}")
+          assert(
+            throughput >= envelope.throughput,
+            s"Observed throughput of ${"%.2f" format throughput} is below the necessary envelope level ${envelope.throughput}")
+        }
     }
   }
 
@@ -394,7 +396,8 @@ object PerformanceEnvelope {
       "perf-envelope-latency",
       s"Verify that ledger passes the ${envelope.name} latency envelope",
       allocate(SingleParty, SingleParty),
-    ) { participants =>
+    ) { (participants, ec) =>
+      implicit val e: ExecutionContext = ec
       waitForParties(participants.participants)
 
       sendPings(
@@ -437,7 +440,8 @@ object PerformanceEnvelope {
       "perf-envelope-transaction-size",
       s"Verify that ledger passes the ${envelope.name} transaction size envelope",
       allocate(SingleParty, SingleParty),
-    ) { participants =>
+    ) { (participants, ec) =>
+      implicit val e: ExecutionContext = ec
       waitForParties(participants.participants)
 
       sendPings(

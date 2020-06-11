@@ -33,7 +33,8 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
     "An attempt at uploading an empty payload should fail",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         failure <- ledger.uploadDarFile(ByteString.EMPTY).failed
       } yield {
@@ -50,7 +51,8 @@ final class PackageManagement(session: LedgerSession) extends LedgerTestSuite(se
     "Concurrent uploads of the same package should be idempotent and result in the package being available for use",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         testPackage <- loadTestPackage()
         _ <- Future.sequence(Vector.fill(8)(ledger.uploadDarFile(testPackage)))

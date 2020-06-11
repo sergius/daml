@@ -20,13 +20,16 @@ import com.daml.ledger.test_stable.Test.{Dummy, _}
 import io.grpc.Status
 import scalaz.syntax.tag._
 
+import scala.concurrent.ExecutionContext
+
 final class CommandService(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "CSsubmitAndWait",
     "SubmitAndWait creates a contract of the expected template",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
         _ <- ledger.submitAndWait(request)
@@ -43,7 +46,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "SubmitAndWaitForTransactionId returns a valid transaction identifier",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
         transactionId <- ledger.submitAndWaitForTransactionId(request)
@@ -92,7 +96,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "SubmitAndWaitForTransaction returns a transaction",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
         transaction <- ledger.submitAndWaitForTransaction(request)
@@ -122,7 +127,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "SubmitAndWaitForTransactionTree returns a transaction tree",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
         transactionTree <- ledger.submitAndWaitForTransactionTree(request)
@@ -152,7 +158,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "SubmitAndWait should fail on duplicate requests",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
         _ <- ledger.submitAndWait(request)
@@ -167,7 +174,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "SubmitAndWaitForTransactionId should fail on duplicate requests",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
         _ <- ledger.submitAndWaitForTransactionId(request)
@@ -182,7 +190,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "SubmitAndWaitForTransaction should fail on duplicate requests",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
         _ <- ledger.submitAndWaitForTransaction(request)
@@ -197,7 +206,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "SubmitAndWaitForTransactionTree should fail on duplicate requests",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val request = ledger.submitAndWaitRequest(party, Dummy(party).create.command)
       for {
         _ <- ledger.submitAndWaitForTransactionTree(request)
@@ -212,7 +222,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "SubmitAndWaitForTransactionId should fail for invalid ledger ids",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "CSsubmitAndWaitForTransactionIdInvalidLedgerId"
       val request = ledger
         .submitAndWaitRequest(party, Dummy(party).create.command)
@@ -232,7 +243,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "SubmitAndWaitForTransaction should fail for invalid ledger ids",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "CSsubmitAndWaitForTransactionInvalidLedgerId"
       val request = ledger
         .submitAndWaitRequest(party, Dummy(party).create.command)
@@ -252,7 +264,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "SubmitAndWaitForTransactionTree should fail for invalid ledger ids",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val invalidLedgerId = "CSsubmitAndWaitForTransactionTreeInvalidLedgerId"
       val request = ledger
         .submitAndWaitRequest(party, Dummy(party).create.command)
@@ -272,7 +285,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "The submission of a creation that contains a bad parameter label should result in an INVALID_ARGUMENT",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val createWithBadArgument = Dummy(party).create.command
         .update(_.create.createArguments.fields.foreach(_.label := "INVALID_PARAM"))
       val badRequest = ledger.submitAndWaitRequest(party, createWithBadArgument)
@@ -288,7 +302,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "A submission resulting in an interpretation error should return the stack trace",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         dummy <- ledger.create(party, Dummy(party))
         failure <- ledger.exercise(party, dummy.exerciseFailingClone).failed
@@ -306,7 +321,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "Disclose create to observers",
     allocate(TwoParties, SingleParty),
   ) {
-    case Participants(Participant(alpha, giver, observer1), Participant(beta, observer2)) =>
+    case (Participants(Participant(alpha, giver, observer1), Participant(beta, observer2)), ec) =>
+      implicit val e: ExecutionContext = ec
       val template = WithObservers(giver, Primitive.List(observer1, observer2))
       for {
         _ <- alpha.create(giver, template)
@@ -340,7 +356,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "Disclose exercise to observers",
     allocate(TwoParties, SingleParty),
   ) {
-    case Participants(Participant(alpha, giver, observer1), Participant(beta, observer2)) =>
+    case (Participants(Participant(alpha, giver, observer1), Participant(beta, observer2)), ec) =>
+      implicit val e: ExecutionContext = ec
       val template = WithObservers(giver, Primitive.List(observer1, observer2))
       for {
         withObservers <- alpha.create(giver, template)
@@ -373,7 +390,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "The server should accept a submission with 15 commands",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val target = 15
       val commands = Vector.fill(target)(Dummy(party).create.command)
       val request = ledger.submitAndWaitRequest(party, commands: _*)
@@ -393,7 +411,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "Run CallablePayout and return the right events",
     allocate(TwoParties, SingleParty),
   ) {
-    case Participants(Participant(alpha, giver, newReceiver), Participant(beta, receiver)) =>
+    case (Participants(Participant(alpha, giver, newReceiver), Participant(beta, receiver)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         callablePayout <- alpha.create(giver, CallablePayout(giver, receiver))
         _ <- synchronize(alpha, beta)
@@ -413,7 +432,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "It should be possible to exercise a choice on a created contract",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         factory <- ledger.create(party, DummyFactory(party))
         tree <- ledger.exercise(party, factory.exerciseDummyFactoryCall)
@@ -426,7 +446,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   }
 
   test("CSBadNumericValues", "Reject unrepresentable numeric values", allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       // Code generation catches bad decimals early so we have to do some work to create (possibly) invalid requests
       def rounding(numeric: String): Command =
         DecimalRounding(party, BigDecimal("0")).create.command.update(
@@ -454,7 +475,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
   }
 
   test("CSCreateAndExercise", "Implement create-and-exercise correctly", allocate(SingleParty)) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val createAndExercise = Dummy(party).createAnd.exerciseDummyChoice1(party).command
       val request = ledger.submitAndWaitRequest(party, createAndExercise)
       for {
@@ -485,7 +507,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "Fail create-and-exercise on bad create arguments",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val createAndExercise = Dummy(party).createAnd
         .exerciseDummyChoice1(party)
         .command
@@ -503,7 +526,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "Fail create-and-exercise on bad choice arguments",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val createAndExercise = Dummy(party).createAnd
         .exerciseDummyChoice1(party)
         .command
@@ -521,7 +545,8 @@ final class CommandService(session: LedgerSession) extends LedgerTestSuite(sessi
     "Fail create-and-exercise on invalid choice",
     allocate(SingleParty),
   ) {
-    case Participants(Participant(ledger, party)) =>
+    case (Participants(Participant(ledger, party)), ec) =>
+      implicit val e: ExecutionContext = ec
       val missingChoice = "DoesNotExist"
       val createAndExercise = Dummy(party).createAnd
         .exerciseDummyChoice1(party)

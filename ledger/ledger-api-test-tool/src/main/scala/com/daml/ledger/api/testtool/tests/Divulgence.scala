@@ -9,13 +9,16 @@ import com.daml.ledger.test_stable.Test.Divulgence2._
 import com.daml.ledger.test_stable.Test.{Divulgence1, Divulgence2}
 import scalaz.Tag
 
+import scala.concurrent.ExecutionContext
+
 final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "DivulgenceTx",
     "Divulged contracts should not be exposed by the transaction service",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
         divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))
@@ -156,7 +159,8 @@ final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) 
     "Divulged contracts should not be exposed by the active contract service",
     allocate(TwoParties),
   ) {
-    case Participants(Participant(ledger, alice, bob)) =>
+    case (Participants(Participant(ledger, alice, bob)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         divulgence1 <- ledger.create(alice, Divulgence1(alice))
         divulgence2 <- ledger.create(bob, Divulgence2(bob, alice))

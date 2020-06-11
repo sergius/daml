@@ -6,7 +6,7 @@ package com.daml.ledger.api.testtool.tests
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 final class Identity(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
@@ -14,7 +14,8 @@ final class Identity(session: LedgerSession) extends LedgerTestSuite(session) {
     "A ledger should return a non-empty string as its identity",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       Future {
         assert(ledger.ledgerId.nonEmpty, "The returned ledger identifier was empty")
       }

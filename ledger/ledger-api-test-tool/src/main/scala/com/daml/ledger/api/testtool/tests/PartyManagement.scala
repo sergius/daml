@@ -10,6 +10,7 @@ import com.daml.ledger.api.v1.admin.party_management_service.PartyDetails
 import com.daml.ledger.client.binding
 import scalaz.Tag
 
+import scala.concurrent.ExecutionContext
 import scala.util.Random
 
 final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(session) {
@@ -18,7 +19,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     "Asking for the participant identifier should return a non-empty string",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         participantId <- ledger.participantId()
       } yield {
@@ -32,7 +34,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     "It should be possible to provide a hint when allocating a party",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         party <- ledger.allocateParty(
           partyIdHint = Some(pMAllocateWithHint + "_" + Random.alphanumeric.take(10).mkString),
@@ -50,7 +53,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     "It should be possible to not provide a hint when allocating a party",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         party <- ledger.allocateParty(partyIdHint = None, displayName = Some("Jebediah Kerman"))
       } yield
@@ -66,7 +70,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     "It should be possible to not provide a display name when allocating a party",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         party <- ledger.allocateParty(
           partyIdHint =
@@ -85,7 +90,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     "It should be possible to allocate parties with the same display names",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         p1 <- ledger.allocateParty(partyIdHint = None, displayName = Some("Ononym McOmonymface"))
         p2 <- ledger.allocateParty(partyIdHint = None, displayName = Some("Ononym McOmonymface"))
@@ -101,7 +107,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     "It should create unique party names when allocating many parties",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         parties <- ledger.allocateParties(100)
       } yield {
@@ -117,7 +124,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     "It should get details for multiple parties, if they exist",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         party1 <- ledger.allocateParty(
           partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),
@@ -161,7 +169,8 @@ final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(sess
     "It should list all known, previously-allocated parties",
     allocate(NoParties),
   ) {
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       for {
         party1 <- ledger.allocateParty(
           partyIdHint = Some("PMListKnownParties_" + Random.alphanumeric.take(10).mkString),

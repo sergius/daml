@@ -10,6 +10,8 @@ import com.daml.ledger.api.v1.admin.config_management_service.TimeModel
 import com.google.protobuf.duration.Duration
 import io.grpc.Status
 
+import scala.concurrent.ExecutionContext
+
 final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "CMSetAndGetTimeModel",
@@ -17,7 +19,8 @@ final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(ses
     allocate(NoParties),
   ) {
 
-    case Participants(Participant(ledger)) =>
+    case (Participants(Participant(ledger)), ec) =>
+      implicit val e: ExecutionContext = ec
       val newTimeModel = TimeModel(
         avgTransactionLatency = Some(Duration(0, 1)),
         minSkew = Some(Duration(60, 0)),
