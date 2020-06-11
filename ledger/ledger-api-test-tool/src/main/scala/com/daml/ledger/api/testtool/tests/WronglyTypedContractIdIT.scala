@@ -5,7 +5,7 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import com.daml.ledger.client.binding.Primitive
 import com.daml.ledger.test_stable.Test.Delegation._
 import com.daml.ledger.test_stable.Test.DummyWithParam._
@@ -14,7 +14,7 @@ import io.grpc.Status.Code
 
 import scala.concurrent.ExecutionContext
 
-final class WronglyTypedContractIdIT(session: LedgerSession) extends LedgerTestSuite(session) {
+final class WronglyTypedContractIdIT extends LedgerTestSuite() {
   test("WTExerciseFails", "Exercising on a wrong type fails", allocate(SingleParty)) {
     case (Participants(Participant(ledger, party)), ec) =>
       implicit val _: ExecutionContext = ec

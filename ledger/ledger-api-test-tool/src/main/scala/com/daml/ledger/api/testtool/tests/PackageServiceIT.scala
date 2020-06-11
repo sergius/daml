@@ -5,12 +5,12 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import io.grpc.Status
 
 import scala.concurrent.ExecutionContext
 
-final class PackageServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
+final class PackageServiceIT extends LedgerTestSuite() {
 
   /** A package ID that is guaranteed to not be uploaded */
   private[this] val unknownPackageId = " "

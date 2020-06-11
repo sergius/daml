@@ -5,12 +5,12 @@ package com.daml.ledger.api.testtool.tests
 
 import com.daml.ledger.api.testtool.infrastructure.Allocation._
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.{LedgerSession, LedgerTestSuite}
+import com.daml.ledger.api.testtool.infrastructure.LedgerTestSuite
 import io.grpc.health.v1.health.HealthCheckResponse
 
 import scala.concurrent.ExecutionContext
 
-class HealthServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
+class HealthServiceIT extends LedgerTestSuite() {
   test("HScheck", "The Health.Check endpoint reports everything is well", allocate(NoParties)) {
     case (Participants(Participant(ledger)), ec) =>
       implicit val e: ExecutionContext = ec
