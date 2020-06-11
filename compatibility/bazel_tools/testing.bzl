@@ -153,12 +153,14 @@ excluded_test_tool_tests = {
     "0.0.0": [
         {
             "end": "1.0.1-snapshot.20200417.3908.1.722bac90",
-            "exclusions": ["ContractKeysIT"],
+            "exclusions": ["ContractKeysIT:CKFetchOrLookup",
+                           "ContractKeysIT:CKNoFetchUndisclosed"],
         },
         {
             "start": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
             "end": "1.1.0-snapshot.20200422.3991.0.6391ee9f",
-            "exclusions": ["ContractKeysIT"],
+            "exclusions": ["ContractKeysIT:CKFetchOrLookup",
+                           "ContractKeysIT:CKNoFetchUndisclosed"],
         },
     ],
 }
