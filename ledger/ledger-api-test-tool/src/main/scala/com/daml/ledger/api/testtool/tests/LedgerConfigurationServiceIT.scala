@@ -11,7 +11,7 @@ import io.grpc.Status
 
 import scala.concurrent.ExecutionContext
 
-class LedgerConfigurationService(session: LedgerSession) extends LedgerTestSuite(session) {
+class LedgerConfigurationServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test("ConfigSucceeds", "Return a valid configuration for a valid request", allocate(NoParties)) {
     case (Participants(Participant(ledger)), ec) =>
       implicit val _: ExecutionContext = ec

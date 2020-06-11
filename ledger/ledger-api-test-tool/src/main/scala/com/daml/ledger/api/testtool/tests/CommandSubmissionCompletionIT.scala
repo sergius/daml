@@ -16,7 +16,7 @@ import io.grpc.Status
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
-final class CommandSubmissionCompletion(session: LedgerSession) extends LedgerTestSuite(session) {
+final class CommandSubmissionCompletionIT(session: LedgerSession) extends LedgerTestSuite(session) {
 
   test(
     "CSCCompletions",

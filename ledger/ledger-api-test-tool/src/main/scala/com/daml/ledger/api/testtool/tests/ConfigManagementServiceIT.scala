@@ -12,7 +12,7 @@ import io.grpc.Status
 
 import scala.concurrent.ExecutionContext
 
-final class ConfigManagement(session: LedgerSession) extends LedgerTestSuite(session) {
+final class ConfigManagementServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "CMSetAndGetTimeModel",
     "It should be able to get, set and restore the time model",

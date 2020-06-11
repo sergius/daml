@@ -14,7 +14,7 @@ import io.grpc.Status.Code
 
 import scala.concurrent.ExecutionContext
 
-final class WronglyTypedContractId(session: LedgerSession) extends LedgerTestSuite(session) {
+final class WronglyTypedContractIdIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test("WTExerciseFails", "Exercising on a wrong type fails", allocate(SingleParty)) {
     case (Participants(Participant(ledger, party)), ec) =>
       implicit val _: ExecutionContext = ec

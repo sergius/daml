@@ -11,7 +11,7 @@ import scalaz.Tag
 
 import scala.concurrent.ExecutionContext
 
-final class Witnesses(session: LedgerSession) extends LedgerTestSuite(session) {
+final class WitnessesIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test("RespectDisclosureRules", "The ledger should respect disclosure rules", allocate(Parties(3))) {
     case (Participants(Participant(ledger, alice, bob, charlie)), ec) =>
       implicit val e: ExecutionContext = ec

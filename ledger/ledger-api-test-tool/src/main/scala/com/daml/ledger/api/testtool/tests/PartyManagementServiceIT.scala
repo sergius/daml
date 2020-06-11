@@ -13,7 +13,7 @@ import scalaz.Tag
 import scala.concurrent.ExecutionContext
 import scala.util.Random
 
-final class PartyManagement(session: LedgerSession) extends LedgerTestSuite(session) {
+final class PartyManagementServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "PMNonEmptyParticipantID",
     "Asking for the participant identifier should return a non-empty string",

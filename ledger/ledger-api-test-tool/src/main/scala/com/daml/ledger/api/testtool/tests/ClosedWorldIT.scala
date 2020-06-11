@@ -17,7 +17,7 @@ import io.grpc.Status
 
 import scala.concurrent.ExecutionContext
 
-class ClosedWorld(session: LedgerSession) extends LedgerTestSuite(session) {
+class ClosedWorldIT(session: LedgerSession) extends LedgerTestSuite(session) {
 
   private[this] val onePound = Amount(BigDecimal(1), "GBP")
 

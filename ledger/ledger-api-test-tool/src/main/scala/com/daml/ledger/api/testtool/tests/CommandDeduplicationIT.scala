@@ -19,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
-final class CommandDeduplication(session: LedgerSession) extends LedgerTestSuite(session) {
+final class CommandDeduplicationIT(session: LedgerSession) extends LedgerTestSuite(session) {
 
   /** A deduplicated submission can either
     * succeed (if the participant knows that the original submission has succeeded),

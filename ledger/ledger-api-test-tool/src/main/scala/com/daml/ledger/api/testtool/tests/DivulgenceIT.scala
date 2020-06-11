@@ -11,7 +11,7 @@ import scalaz.Tag
 
 import scala.concurrent.ExecutionContext
 
-final class Divulgence(session: LedgerSession) extends LedgerTestSuite(session) {
+final class DivulgenceIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "DivulgenceTx",
     "Divulged contracts should not be exposed by the transaction service",

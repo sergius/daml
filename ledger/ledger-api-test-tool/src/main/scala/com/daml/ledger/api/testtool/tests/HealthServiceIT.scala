@@ -10,7 +10,7 @@ import io.grpc.health.v1.health.HealthCheckResponse
 
 import scala.concurrent.ExecutionContext
 
-class HealthService(session: LedgerSession) extends LedgerTestSuite(session) {
+class HealthServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test("HScheck", "The Health.Check endpoint reports everything is well", allocate(NoParties)) {
     case (Participants(Participant(ledger)), ec) =>
       implicit val e: ExecutionContext = ec

@@ -22,7 +22,7 @@ import scalaz.syntax.tag._
 
 import scala.concurrent.ExecutionContext
 
-final class CommandService(session: LedgerSession) extends LedgerTestSuite(session) {
+final class CommandServiceIT(session: LedgerSession) extends LedgerTestSuite(session) {
   test(
     "CSsubmitAndWait",
     "SubmitAndWait creates a contract of the expected template",
