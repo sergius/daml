@@ -1144,6 +1144,7 @@ object SBuiltin {
           tx = tx,
           committers = machine.committers,
           callback = newValue => {
+            System.err.println("CLEARING")
             machine.clearCommit
             machine.returnValue = newValue
           },
