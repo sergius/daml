@@ -950,11 +950,11 @@ ofInterestRule opts = do
                     let doc = formatScenarioResult world res
                     when (vr `HashSet.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
-                let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) (concat $ maybeToList mbVrs)
-                forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr -> do
-                    when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
-                        sendEvent $ vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
-                        T.pack $ fromNormalizedFilePath file
+                -- let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) (concat $ maybeToList mbVrs)
+                -- forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr -> do
+                --     when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
+                --         sendEvent $ vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
+                --         T.pack $ fromNormalizedFilePath file
 
         let runScripts file = do
                 world <- worldForFile file
@@ -963,11 +963,11 @@ ofInterestRule opts = do
                     let doc = formatScenarioResult world res
                     when (vr `HashSet.member` openVRs) $
                         sendEvent $ vrChangedNotification vr doc
-                let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) (concat $ maybeToList mbVrs)
-                forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr -> do
-                    when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
-                        sendEvent $ vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
-                        T.pack $ fromNormalizedFilePath file
+--                let vrScenarioNames = Set.fromList $ fmap (vrScenarioName . fst) (concat $ maybeToList mbVrs)
+                -- forM_ (HashMap.lookupDefault [] file openVRsByFile) $ \ovr -> do
+                --     when (not $ vrScenarioName ovr `Set.member` vrScenarioNames) $
+                --         sendEvent $ vrNoteSetNotification ovr $ LF.scenarioNotInFileNote $
+                --         T.pack $ fromNormalizedFilePath file
 
         -- We don’t always have a scenario service (e.g., damlc compile)
         -- so only run scenarios if we have one.

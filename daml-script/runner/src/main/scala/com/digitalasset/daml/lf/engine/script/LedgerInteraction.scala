@@ -3,6 +3,7 @@
 
 package com.daml.lf.engine.script
 
+
 import com.daml.lf.engine.preprocessing
 
 import akka.actor.ActorSystem
@@ -33,15 +34,17 @@ import com.daml.lf.CompiledPackages
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.crypto
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.Ref
+import com.daml.lf.data.{Ref, ImmArray}
 import com.daml.lf.data.{Time}
 import com.daml.lf.iface.{EnvironmentInterface, InterfaceType}
 import com.daml.lf.language.Ast._
-import com.daml.lf.speedy.{InitialSeeding, PartialTransaction}
-import com.daml.lf.transaction.Node.{NodeCreate}
+import com.daml.lf.language.Util._
+import com.daml.lf.speedy.{InitialSeeding, PartialTransaction, SResult}
+import com.daml.lf.transaction.Node.{NodeCreate, NodeExercises}
 import com.daml.lf.speedy.Speedy.Machine
 import com.daml.lf.speedy.SBuiltin._
-import com.daml.lf.speedy.SExpr
+import com.daml.lf.speedy.{SExpr, SValue, SError}
+import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.speedy.SResult._
@@ -84,7 +87,7 @@ object ScriptLedgerClient {
       templateId: Identifier,
       contractId: ContractId,
       choice: String,
-      argument: Value[ContractId])
+      argument: (Value[ContractId], SValue))
       extends Command
   final case class ExerciseByKeyCommand(
       templateId: Identifier,
@@ -262,7 +265,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient) extends ScriptLedgerClient 
         for {
           arg <- lfValueToApiRecord(true, argument)
         } yield Command().withCreate(CreateCommand(Some(toApiIdentifier(templateId)), Some(arg)))
-      case ScriptLedgerClient.ExerciseCommand(templateId, contractId, choice, argument) =>
+      case ScriptLedgerClient.ExerciseCommand(templateId, contractId, choice, (argument, _)) =>
         for {
           arg <- lfValueToApiValue(true, argument)
         } yield
@@ -316,8 +319,12 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
   private val valueTranslator = new preprocessing.ValueTranslator(compiledPackages)
   override def query(party: SParty, templateId: Identifier)(
       implicit ec: ExecutionContext,
-      mat: Materializer) = {
-    throw new RuntimeException("foobar")
+    mat: Materializer): Future[Seq[ScriptLedgerClient.ActiveContract]] = {
+    val acs = ledger.query(view = ScenarioLedger.ParticipantView(party.value), effectiveAt = ledger.currentTime)
+    val filtered = acs.collect {
+      case (cid, Value.ContractInst(tpl, arg, _)) if tpl == templateId => (cid, arg)
+    }
+    Future.successful(filtered.map { case (cid, c) => ScriptLedgerClient.ActiveContract(templateId, cid, c.value) })
   }
 
   private def translateCommand(cmd: ScriptLedgerClient.Command): SExpr = {
@@ -327,8 +334,24 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
         val sArg = valueTranslator.translateValue(TTyCon(tplId), arg).right.get
         val fn = compiledPackages.compiler.unsafeCompile(EAbs((Name.assertFromString("arg"), TTyCon(tplId)), EUpdate(UpdateCreate(tplId, EVar(Name.assertFromString("arg")))), None))
         SEApp(fn, Array(SEValue(sArg)))
-        // val fn = compiler.unsafeCompile
-        // Binding(None, TContractId(TTyCon(tplId)), EUpdate(UpdateCreate(tplId, )
+      case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, (_, arg)) =>
+        // Writing creates in SExpr is super annoying so compile it as a function.
+        val argName = Name.assertFromString("arg")
+        val cidName = Name.assertFromString("cid")
+        val fn = compiledPackages.compiler.unsafeCompile(
+          EAbs(
+            (cidName, TContractId(TTyCon(tplId))),
+            EAbs((argName, TTyCon(tplId)),
+              EUpdate(
+                UpdateExercise(
+                  tplId,
+                  ChoiceName.assertFromString(choice),
+                  EVar(cidName),
+                  None,
+                  EVar(argName))),
+              None),
+            None))
+        SEApp(fn, Array(SEValue(SContractId(cid)), SEValue(arg)))
       case _ => throw new RuntimeException("foobar")
     }
   }
@@ -343,14 +366,29 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
     val pureUnit = SEApp(SEMakeClo(Array(), 2, SELocA(0)), Array(SEValue(SUnit)))
     val update = SEMakeClo(Array(), 1,
       SELet(bounds: _*) in SEApp(pureUnit, Array(SELocA(0))))
-    SELet(SEValue(p), update) in
-              // Capture both variables bound in the let
-              SEMakeClo(Array(SELocS(2), SELocS(1)),1,
+
+    val x = SELet(SEValue(SInt64(42)), SEValue(SInt64(31))) in
+              SEAbs(1) {
                 SELet(
                   // stack: <party> <update> <token>
-                  SBSBeginCommit(None)(SELocF(0), SELocA(0)),
+                  SBSBeginCommit(None)(SEVar(3), SEVar(1)),
                   // stack: <party> <update> <token> ()
-                  SEApp(SELocF(1), Array(SELocA(0))),
+                  SEApp(SEVar(3), Array(SEVar(2))),
+                  // stack: <party> <update> <token> () result
+                ) in
+                  SBSEndCommit(false)(SEVar(1), SEVar(3))
+              }
+
+    System.err.println(s"DEBUG: ${compiledPackages.compiler.unsafeClosureConvert(x)}")
+
+    SELet(SEValue(p), update) in
+              // Capture both variables bound in the let
+              SEMakeClo(Array(SELocS(1), SELocS(2)),1,
+                SELet(
+                  // stack: <party> <update> <token>
+                  SBSBeginCommit(None)(SELocF(1), SELocA(0)),
+                  // stack: <party> <update> <token> ()
+                  SEApp(SELocF(0), Array(SELocA(0))),
                   // stack: <party> <update> <token> () result
                 ) in
                   SBSEndCommit(false)(SELocS(1), SELocA(0))
@@ -363,54 +401,82 @@ class IdeClient(val compiledPackages: CompiledPackages) extends ScriptLedgerClie
       commands: List[ScriptLedgerClient.Command])(
       implicit ec: ExecutionContext,
         mat: Materializer):Future[Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]] = {
-    System.err.println(s"compiling")
-    var translated:SExpr = SEValue(SUnit)
-    var x = translateCommands(party, commands)
-    System.err.println(x)
-    try {
-      translated = translateCommands(party, commands)
-    } catch {
-      case err: RuntimeException =>
-        System.err.println(s"ERROR: $err")
-    }
-    System.err.println(s"compiling $translated")
-    machine.ctrl = SEApp(translated, Array(SEValue.Token))
-    System.err.println(s"running")
-    machine.run() match {
-      case SResultScenarioCommit(value, tx, committers, callback) =>
-        val results = tx.roots.map { n =>
-          tx.nodes(n) match {
-            case create: NodeCreate.WithTxValue[ContractId] =>
-              ScriptLedgerClient.CreateResult(create.coid)
-            case _ => throw new RuntimeException("foobar")
+    machine.returnValue = null
+    System.err.println(s"compiling: ${machine.env.size}")
+    var translated = translateCommands(party, commands)
+    machine.setExpressionToEvaluate(SEApp(translated, Array(SEValue.Token)))
+    System.err.println(s"RUNNING")
+    var r: SResult = SResultFinalValue(SUnit)
+    var result:Either[StatusRuntimeException, Seq[ScriptLedgerClient.CommandResult]]  = null
+    while (result == null) {
+      machine.run() match {
+        case SResultNeedContract(coid, tid @ _, committers, cbMissing, cbPresent) =>
+          val committer =committers.head
+          val effectiveAt = ledger.currentTime
+
+          def missingWith(err: SError) =
+            if (!cbMissing(()))
+              throw new RuntimeException(err.toString)
+
+          ledger.lookupGlobalContract(
+            view = ScenarioLedger.ParticipantView(committer),
+            effectiveAt = effectiveAt,
+            coid) match {
+            case ScenarioLedger.LookupOk(_, coinst, _) =>
+              cbPresent(coinst)
+
+            case ScenarioLedger.LookupContractNotFound(coid) =>
+              // This should never happen, hence we don't have a specific
+              // error for this.
+              missingWith(SErrorCrash(s"contract $coid not found"))
+
+            case ScenarioLedger.LookupContractNotEffective(coid, tid, effectiveAt) =>
+              missingWith(ScenarioErrorContractNotEffective(coid, tid, effectiveAt))
+
+            case ScenarioLedger.LookupContractNotActive(coid, tid, consumedBy) =>
+              missingWith(ScenarioErrorContractNotActive(coid, tid, consumedBy))
+
+            case ScenarioLedger.LookupContractNotVisible(coid, tid, observers, stakeholders @ _) =>
+              missingWith(ScenarioErrorContractNotVisible(coid, tid, committer, observers))
           }
-        }
-        val committer = committers.head
-        ScenarioLedger.commitTransaction(
-          committer = committer,
-          effectiveAt = ledger.currentTime,
-          optLocation = machine.commitLocation,
-          tx = tx,
-          l = ledger
-        ) match {
-          case Left(fas) =>
-            throw new RuntimeException("abc")
-          case Right(result) =>
-            ledger = result.newLedger
-            callback(value)
-        }
-        System.err.println(s"commited: $tx")
-        Future.successful(Right(results.toSeq))
-      case err =>
-        System.err.println(s"Failed commit: $err")
-        throw new RuntimeException(s"FAILED: $err")
+        case SResultScenarioCommit(value, tx, committers, callback) =>
+          val results: ImmArray[ScriptLedgerClient.CommandResult] = tx.roots.map { n =>
+            tx.nodes(n) match {
+              case create: NodeCreate.WithTxValue[ContractId] =>
+                ScriptLedgerClient.CreateResult(create.coid)
+              case exercise: NodeExercises.WithTxValue[_, ContractId] =>
+                ScriptLedgerClient.ExerciseResult(exercise.templateId, exercise.choiceId.toString, exercise.exerciseResult.get.value)
+              case _ => throw new RuntimeException("foobar")
+            }
+          }
+          val committer = committers.head
+          ScenarioLedger.commitTransaction(
+            committer = committer,
+            effectiveAt = ledger.currentTime,
+            optLocation = machine.commitLocation,
+            tx = tx,
+            l = ledger
+          ) match {
+            case Left(fas) =>
+              throw new RuntimeException("abc")
+            case Right(result) =>
+              ledger = result.newLedger
+              callback(value)
+          }
+          System.err.println(s"commited: $tx")
+          result = Right(results.toSeq)
+        case err =>
+          System.err.println(s"Failed commit: $err")
+          throw new RuntimeException(s"FAILED: $err")
+      }
     }
+    Future.successful(result)
   }
 
   override def allocateParty(partyIdHint: String, displayName: String)(
       implicit ec: ExecutionContext,
       mat: Materializer) = {
-    Future.successful(SParty(Ref.Party.assertFromString(partyIdHint)))
+    Future.successful(SParty(Ref.Party.assertFromString(displayName)))
   }
 
   override def listKnownParties()(implicit ec: ExecutionContext, mat: Materializer) = {
@@ -511,7 +577,7 @@ class JsonLedgerClient(
           command match {
             case ScriptLedgerClient.CreateCommand(tplId, argument) =>
               create(tplId, argument)
-            case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, argument) =>
+            case ScriptLedgerClient.ExerciseCommand(tplId, cid, choice, (argument, _)) =>
               exercise(tplId, cid, choice, argument)
             case ScriptLedgerClient.ExerciseByKeyCommand(tplId, key, choice, argument) =>
               exerciseByKey(tplId, key, choice, argument)
