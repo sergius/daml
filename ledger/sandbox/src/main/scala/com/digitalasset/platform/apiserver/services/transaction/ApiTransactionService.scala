@@ -6,7 +6,7 @@ package com.daml.platform.apiserver.services.transaction
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.NotUsed
-import akka.stream.Materializer
+import akka.stream.{Materializer, OverflowStrategy}
 import akka.stream.scaladsl.Source
 import com.daml.ledger.participant.state.index.v2.IndexTransactionsService
 import com.daml.lf.data.Ref.Party
@@ -75,7 +75,7 @@ final class ApiTransactionService private (
       transactionsService
         .transactions(request.startExclusive, request.endInclusive, request.filter, request.verbose)
         .via(logger.logErrorsOnStream)
-    }
+    }.buffer(1, OverflowStrategy.backpressure)
 
   override def getTransactionTrees(
       request: GetTransactionTreesRequest): Source[GetTransactionTreesResponse, NotUsed] =
@@ -93,7 +93,7 @@ final class ApiTransactionService private (
           request.verbose
         )
         .via(logger.logErrorsOnStream)
-    }
+    }.buffer(1, OverflowStrategy.backpressure)
 
   override def getTransactionByEventId(
       request: GetTransactionByEventIdRequest): Future[GetTransactionResponse] =
