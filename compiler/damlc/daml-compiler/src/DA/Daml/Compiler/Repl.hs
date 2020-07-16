@@ -36,12 +36,10 @@ import ErrUtils
 import GHC
 import HscTypes (HscEnv(..))
 import Language.Haskell.GhclibParserEx.Parse
-import Lexer (ParseResult(..))
 import Module (unitIdString)
 import OccName (occName, OccSet, elemOccSet, mkOccSet, mkVarOcc)
 import Outputable (ppr, showSDoc)
 import RdrName (mkRdrUnqual)
-import SrcLoc (unLoc)
 import qualified System.Console.Repline as Repl
 import System.Exit
 import System.IO.Extra
