@@ -12,7 +12,7 @@ import DA.Daml.LF.Proto3.Archive (decodeArchivePackageId)
 import DA.Daml.LF.Reader(DalfManifest(..), Dalfs(..), readDalfs, readDalfManifest)
 import DA.Ledger as Ledger
 import DA.Test.Sandbox
-import Data.List (elem,isPrefixOf,isInfixOf,(\\))
+import Data.List (isPrefixOf,isInfixOf,(\\))
 import Data.IORef
 import Prelude hiding(Enum)
 import System.Environment.Blank (setEnv)
