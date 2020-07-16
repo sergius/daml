@@ -23,3 +23,15 @@ index 1d9c007c..0b6f90c3 100644
          "8.10.1": {
              "darwin_amd64": (
                  "https://downloads.haskell.org/~ghc/8.10.1/ghc-8.10.1-x86_64-apple-darwin.tar.xz",
+diff --git a/haskell/private/cc_wrapper_windows.sh.tpl b/haskell/private/cc_wrapper_windows.sh.tpl
+index e62c07a5..aa5613ec 100644
+--- a/haskell/private/cc_wrapper_windows.sh.tpl
++++ b/haskell/private/cc_wrapper_windows.sh.tpl
+@@ -86,7 +86,6 @@ RESPONSE_FILE="$(mktemp rspXXXX)"
+ rm_response_file() {
+     rm -f "$RESPONSE_FILE"
+ }
+-trap rm_response_file EXIT
+ 
+ quote_arg() {
+     # Gcc expects one argument per line, surrounded by double quotes, with
