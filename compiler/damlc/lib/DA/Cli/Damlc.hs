@@ -283,7 +283,7 @@ cmdRepl numProcessors =
             let pkg@(name, _) = splitUnitId (stringToUnitId s)
                 strName = T.unpack . LF.unPackageName $ name
             unless (looksLikePackageName strName) $
-                fail $ "Illegal package name: " ++ strName
+                Left $ "Illegal package name: " ++ strName
             pure pkg
     accessTokenFileFlag = optional . option str $
         long "access-token-file"
