@@ -1,7 +1,7 @@
 # Copyright (c) 2020 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 
-resolver: lts-15.11
+resolver: lts-16.5
 packages:
   - archive: https://daml-binaries.da-ext.net/da-ghc-lib/ghc-lib-f25007ba7501eb393702ab195da28f02.tar.gz
     sha256: "35ace3cde658e49e1b2d763c7e9b3e83a3f6d6dccd16ed7a5d92ea0d6f5f5580"
