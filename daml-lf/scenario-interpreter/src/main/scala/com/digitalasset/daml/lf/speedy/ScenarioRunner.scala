@@ -3,17 +3,13 @@
 
 package com.daml.lf.speedy
 
-import com.daml.lf.{CompiledPackages, VersionRange, crypto}
+import com.daml.lf.{CompiledPackages, crypto}
 import com.daml.lf.scenario.ScenarioLedger
 import com.daml.lf.data.Ref._
 import com.daml.lf.data.{Ref, Time}
+import com.daml.lf.engine.EngineConfig
 import com.daml.lf.language.Ast
-import com.daml.lf.transaction.{
-  GlobalKey,
-  SubmittedTransaction,
-  TransactionVersion,
-  Transaction => Tx
-}
+import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction, Transaction => Tx}
 import com.daml.lf.value.Value.{ContractId, ContractInst}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SResult._
@@ -252,14 +248,15 @@ object ScenarioRunner {
       scenarioDef: Ast.Definition,
       compiledPackages: CompiledPackages,
       transactionSeed: crypto.Hash,
-      outputTransactionVersions: VersionRange[TransactionVersion],
+      engineConfig: EngineConfig,
   ): ScenarioLedger = {
     val scenarioExpr = getScenarioExpr(scenarioRef, scenarioDef)
     val speedyMachine = Speedy.Machine.fromScenarioExpr(
       compiledPackages,
       transactionSeed,
       scenarioExpr,
-      outputTransactionVersions,
+      engineConfig.inputValueVersions,
+      engineConfig.outputTransactionVersions,
     )
     ScenarioRunner(speedyMachine).run() match {
       case Left(e) =>

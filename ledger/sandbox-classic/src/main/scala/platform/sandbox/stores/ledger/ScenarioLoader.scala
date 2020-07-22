@@ -125,7 +125,7 @@ object ScenarioLoader {
       scenarioDef = scenarioDef,
       compiledPackages = compiledPackages,
       transactionSeed = transactionSeed,
-      outputTransactionVersions = SandboxServer.engineConfig.outputTransactionVersions,
+      engineConfig = SandboxServer.engineConfig,
     )
     (scenarioLedger, scenarioRef)
   }

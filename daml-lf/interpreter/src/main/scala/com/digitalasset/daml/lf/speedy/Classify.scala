@@ -29,7 +29,7 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
       var erecdef: Int = 0,
       var ecatch: Int = 0,
       var eimportvalue: Int = 0,
-      var ewrongcid: Int = 0,
+      var eexception: Int = 0,
       // kont classification (ctrlValue)
       var kfinished: Int = 0,
       var karg: Int = 0,
@@ -110,7 +110,7 @@ private[speedy] object Classify { // classify the machine state w.r.t what step 
       case _: SECatch => counts.ecatch += 1
       case _: SELabelClosure => ()
       case _: SEImportValue => counts.eimportvalue += 1
-      case _: SEWronglyTypeContractId => counts.ewrongcid += 1
+      case _: SEDamlException => counts.eexception += 1
     }
   }
 

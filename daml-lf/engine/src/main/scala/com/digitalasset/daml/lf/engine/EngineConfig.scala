@@ -18,7 +18,21 @@ final case class EngineConfig private (
     inputTransactionVersions: VersionRange[TV],
     // constrains the version of output transactions
     outputTransactionVersions: VersionRange[TV],
-) extends NoCopy
+) extends NoCopy {
+
+  private[lf] val inputValueVersions =
+    VersionRange(
+      TransactionVersions.assignValueVersion(inputTransactionVersions.min),
+      TransactionVersions.assignValueVersion(inputTransactionVersions.max),
+    )
+
+  private[lf] val outputValueVersions =
+    VersionRange(
+      TransactionVersions.assignValueVersion(outputTransactionVersions.min),
+      TransactionVersions.assignValueVersion(outputTransactionVersions.max),
+    )
+
+}
 
 object EngineConfig {
 

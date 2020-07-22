@@ -293,6 +293,7 @@ class Engine(config: EngineConfig = EngineConfig.Stable) {
         expr = SExpr.SEApp(sexpr, Array(SExpr.SEValue.Token)),
         globalCids = globalCids,
         committers = submitters,
+        inputValueVersions = config.inputValueVersions,
         outputTransactionVersions = config.outputTransactionVersions,
         validating = validating,
       )
