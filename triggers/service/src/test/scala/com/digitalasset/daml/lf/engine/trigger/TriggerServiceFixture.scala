@@ -11,10 +11,13 @@ import akka.actor.ActorSystem
 import akka.actor.typed.{ActorSystem => TypedActorSystem}
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.Uri
+import akka.http.scaladsl.model.Uri.Path
 import akka.stream.Materializer
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.daml_lf_dev.DamlLf
 import com.daml.grpc.adapter.ExecutionSequencerFactory
+import com.daml.jwt.JwksVerifier
+import com.daml.ledger.api.auth.AuthServiceJWT
 import com.daml.ledger.api.domain.LedgerId
 import com.daml.ledger.api.refinements.ApiTypes.ApplicationId
 import com.daml.ledger.client.LedgerClient
@@ -59,6 +62,7 @@ object TriggerServiceFixture {
       dars: List[File],
       encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]],
       jdbcConfig: Option[JdbcConfig],
+      auth: Boolean,
   )(testFn: (Uri, LedgerClient, Proxy) => Future[A])(
       implicit asys: ActorSystem,
       mat: Materializer,
@@ -67,8 +71,62 @@ object TriggerServiceFixture {
     val host = InetAddress.getLoopbackAddress
     val isWindows: Boolean = sys.props("os.name").toLowerCase.contains("windows")
 
-    // Launch a toxiproxy instance. Wait on it to be ready to accept
-    // connections.
+    // Set up an authentication service if enabled
+    val authServiceAdminLedger: Future[Option[(SandboxServer, Port)]] =
+      if (!auth) Future(None)
+      else {
+        val adminLedgerId = LedgerId("admin-ledger")
+        for {
+          ledger <- Future(
+            new SandboxServer(
+              SandboxServer.defaultConfig.copy(
+                port = Port.Dynamic,
+                ledgerIdMode = LedgerIdMode.Static(adminLedgerId),
+              ),
+              mat))
+          ledgerPort <- ledger.portF
+        } yield Some((ledger, ledgerPort))
+      }
+
+    val authServiceBinaryLoc: String = {
+      val extension = if (isWindows) ".exe" else ""
+      BazelRunfiles.rlocation("triggers/service/ref-ledger-authentication-binary" + extension)
+    }
+
+    val authServiceInstanceF: Future[Option[(Process, Uri)]] =
+      authServiceAdminLedger.flatMap {
+        case None => Future(None)
+        case Some(adminLedger) =>
+          for {
+            port <- Future(findFreePort())
+            ledgerUri = Uri.from(
+              scheme = "http",
+              host = host.getHostAddress,
+              port = adminLedger._2.value)
+            process <- Future {
+              Process(
+                Seq(authServiceBinaryLoc),
+                None,
+                ("DABL_AUTHENTICATION_SERVICE_ADDRESS", host.getHostAddress),
+                ("DABL_AUTHENTICATION_SERVICE_PORT", port.toString),
+                ("DABL_AUTHENTICATION_SERVICE_LEDGER_URL", ledgerUri.toString),
+                ("DABL_AUTHENTICATION_SERVICE_TEST_MODE", "true") // Needed for initial authorize call with basic credentials
+              ).run()
+            }
+            // Wait for the auth service instance to be ready to accept connections.
+            _ <- RetryStrategy.constant(attempts = 10, waitTime = 4.seconds) { (_, _) =>
+              for {
+                channel <- Future(new Socket(host, port.value))
+              } yield channel.close()
+            }
+            authServiceBaseUrl = Uri.from(
+              scheme = "http",
+              host = host.getHostAddress,
+              port = port.value)
+          } yield Some((process, authServiceBaseUrl))
+      }
+
+    // Launch a toxiproxy instance. Wait on it to be ready to accept connections.
     val toxiProxyExe =
       if (!isWindows)
         BazelRunfiles.rlocation("external/toxiproxy_dev_env/bin/toxiproxy-cmd")
@@ -86,7 +144,11 @@ object TriggerServiceFixture {
     val ledgerId = LedgerId(testName)
     val applicationId = ApplicationId(testName)
     val ledgerF = for {
-      ledger <- Future(new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId), mat))
+      authServiceInstance <- authServiceInstanceF
+      authServiceBaseUrl = authServiceInstance.map(_._2)
+      authServiceJwksUrl = authServiceBaseUrl.map(_.withPath(Path("/sa/jwks")))
+      ledger <- Future(
+        new SandboxServer(ledgerConfig(Port.Dynamic, dars, ledgerId, authServiceJwksUrl), mat))
       sandboxPort <- ledger.portF
       ledgerPort = sandboxPort.value
       ledgerProxyPort = findFreePort()
@@ -94,50 +156,19 @@ object TriggerServiceFixture {
         "sandbox",
         s"${host.getHostName}:$ledgerProxyPort",
         s"${host.getHostName}:$ledgerPort")
-    } yield (ledger, ledgerPort, ledgerProxyPort, ledgerProxy)
+    } yield (ledger, ledgerPort, ledgerProxyPort, ledgerProxy, authServiceBaseUrl)
     // 'ledgerProxyPort' is managed by the toxiproxy instance and
     // forwards to the real sandbox port.
 
-    // Now we have a ledger port, launch a ref-ledger-authentication
-    // instance.
-    val refLedgerAuthExe: String =
-      if (!isWindows)
-        BazelRunfiles.rlocation("triggers/service/ref-ledger-authentication-binary")
-      else
-        BazelRunfiles.rlocation("triggers/service/ref-ledger-authentication-binary.exe")
-    val refLedgerAuthProcF: Future[(Port, Process)] = for {
-      refLedgerAuthPort <- Future { findFreePort() }
-      (_, ledgerPort, _, _) <- ledgerF
-      proc <- Future {
-        Process(
-          Seq(refLedgerAuthExe),
-          None,
-          ("DABL_AUTHENTICATION_SERVICE_ADDRESS", host.getHostAddress),
-          ("DABL_AUTHENTICATION_SERVICE_PORT", refLedgerAuthPort.toString),
-          (
-            "DABL_AUTHENTICATION_SERVICE_LEDGER_URL",
-            "http://" + host.getHostAddress + ":" + ledgerPort.toString)
-        ).run()
-      }
-    } yield (refLedgerAuthPort, proc)
-    // Wait on the ref-ledger-authentication instance to be ready to
-    // accept connections.
-    RetryStrategy.constant(attempts = 3, waitTime = 2.seconds) { (_, _) =>
-      for {
-        (refLedgerAuthPort, _) <- refLedgerAuthProcF
-        channel <- Future(new Socket(host, refLedgerAuthPort.value))
-      } yield channel.close()
-    }
-
     // Configure this client with the ledger's *actual* port.
     val clientF: Future[LedgerClient] = for {
-      (_, ledgerPort, _, _) <- ledgerF
+      (_, ledgerPort, _, _, _) <- ledgerF
       client <- LedgerClient.singleHost(host.getHostName, ledgerPort, clientConfig(applicationId))
     } yield client
 
     // Configure the service with the ledger's *proxy* port.
     val serviceF: Future[(ServerBinding, TypedActorSystem[Message])] = for {
-      (_, _, ledgerProxyPort, _) <- ledgerF
+      (_, _, ledgerProxyPort, _, authServiceBaseUrl) <- ledgerF
       ledgerConfig = LedgerConfig(
         host.getHostName,
         ledgerProxyPort.value,
@@ -157,12 +188,13 @@ object TriggerServiceFixture {
         encodedDar,
         jdbcConfig,
         noSecretKey = true,
+        authServiceBaseUrl
       )
     } yield service
 
     // For adding toxics.
     val ledgerProxyF: Future[Proxy] = for {
-      (_, _, _, ledgerProxy) <- ledgerF
+      (_, _, _, ledgerProxy, _) <- ledgerF
     } yield ledgerProxy
 
     val fa: Future[A] = for {
@@ -175,9 +207,10 @@ object TriggerServiceFixture {
 
     fa.onComplete { _ =>
       serviceF.foreach({ case (_, system) => system ! Stop })
-      refLedgerAuthProcF.foreach({ case (_, proc) => proc.destroy })
       ledgerF.foreach(_._1.close())
       toxiProxyProc.destroy
+      authServiceInstanceF.foreach(_.foreach(_._1.destroy))
+      authServiceAdminLedger.foreach(_.foreach(_._1.close()))
     }
 
     fa
@@ -186,14 +219,15 @@ object TriggerServiceFixture {
   private def ledgerConfig(
       ledgerPort: Port,
       dars: List[File],
-      ledgerId: LedgerId
+      ledgerId: LedgerId,
+      authServiceJwksUrl: Option[Uri],
   ): SandboxConfig =
     SandboxServer.defaultConfig.copy(
       port = ledgerPort,
       damlPackages = dars,
       timeProviderType = Some(TimeProviderType.Static),
       ledgerIdMode = LedgerIdMode.Static(ledgerId),
-      authService = None,
+      authService = authServiceJwksUrl.map(url => AuthServiceJWT(JwksVerifier(url.toString))),
     )
 
   private def clientConfig[A](

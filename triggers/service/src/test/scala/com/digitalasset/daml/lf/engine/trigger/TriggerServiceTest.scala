@@ -40,6 +40,8 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
   // Abstract member for testing with and without a database
   def jdbcConfig: Option[JdbcConfig]
 
+  def auth: Boolean
+
   // Default retry config for `eventually`
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(Span(15, Seconds)), interval = scaled(Span(1, Seconds)))
@@ -80,7 +82,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
 
   def withTriggerService[A](encodedDar: Option[Dar[(PackageId, DamlLf.ArchivePayload)]])
     : ((Uri, LedgerClient, Proxy) => Future[A]) => Future[A] =
-    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig)
+    TriggerServiceFixture.withTriggerService(testId, List(darPath), encodedDar, jdbcConfig, auth)
 
   def startTrigger(uri: Uri, triggerName: String, party: User): Future[HttpResponse] = {
     val req = HttpRequest(
@@ -457,6 +459,7 @@ abstract class AbstractTriggerServiceTest extends AsyncFlatSpec with Eventually 
 class TriggerServiceTestInMem extends AbstractTriggerServiceTest {
 
   override def jdbcConfig: Option[JdbcConfig] = None
+  override def auth: Boolean = false
 
 }
 
@@ -467,6 +470,7 @@ class TriggerServiceTestWithDb
     with PostgresAroundAll {
 
   override def jdbcConfig: Option[JdbcConfig] = Some(jdbcConfig_)
+  override def auth: Boolean = false
 
   // Lazy because the postgresDatabase is only available once the tests start
   private lazy val jdbcConfig_ = JdbcConfig(postgresDatabase.url, "operator", "password")
@@ -536,5 +540,13 @@ class TriggerServiceTestWithDb
       } yield succeed
     }
   } yield succeed)
+
+}
+
+// Tests with ledger authentication enabled
+class TriggerServiceTestWithAuth extends AbstractTriggerServiceTest {
+
+  override def jdbcConfig: Option[JdbcConfig] = None
+  override def auth: Boolean = true
 
 }

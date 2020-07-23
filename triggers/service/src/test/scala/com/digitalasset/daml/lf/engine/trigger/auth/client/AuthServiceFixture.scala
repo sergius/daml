@@ -55,7 +55,7 @@ object AuthServiceFixture {
 
     val host = InetAddress.getLoopbackAddress
 
-    val authServiceInstanceF: Future[(Process, Port)] = for {
+    val authServiceInstanceF: Future[(Process, Uri)] = for {
       port <- Future { findFreePort() }
       (_, ledgerPort) <- adminLedgerF
       ledgerUri = Uri.from(scheme = "http", host = host.getHostAddress, port = ledgerPort.value)
@@ -75,15 +75,15 @@ object AuthServiceFixture {
           channel <- Future(new Socket(host, port.value))
         } yield channel.close()
       }
-    } yield (process, port)
-
-    val testF: Future[A] = for {
-      (_, authServicePort) <- authServiceInstanceF
-      authServiceBaseUri = Uri.from(
+      authServiceBaseUrl = Uri.from(
         scheme = "http",
         host = host.getHostAddress,
-        port = authServicePort.value)
-      authServiceClient = AuthServiceClient(authServiceBaseUri)
+        port = port.value)
+    } yield (process, authServiceBaseUrl)
+
+    val testF: Future[A] = for {
+      (_, authServiceBaseUrl) <- authServiceInstanceF
+      authServiceClient = AuthServiceClient(authServiceBaseUrl)
       result <- testFn(authServiceClient)
     } yield result
 
