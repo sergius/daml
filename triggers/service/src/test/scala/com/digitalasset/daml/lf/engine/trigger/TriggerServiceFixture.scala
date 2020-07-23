@@ -156,7 +156,7 @@ object TriggerServiceFixture {
         restartConfig,
         encodedDar,
         jdbcConfig,
-        noSecretKey = true // That's ok, use the default.
+        noSecretKey = true,
       )
     } yield service
 
