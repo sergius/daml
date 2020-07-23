@@ -2,22 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.daml.lf
+package engine
 
 import java.util.concurrent.atomic.AtomicInteger
 
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.PackageId
-import com.daml.lf.engine.ConcurrentCompiledPackages
 import com.daml.lf.language.Ast.Package
 import com.daml.lf.language.{Ast, LanguageVersion, Util => AstUtil}
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.{Matchers, WordSpec}
 
-final class CompiledPackageSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
+final class PackageSpec extends WordSpec with Matchers with TableDrivenPropertyChecks {
 
-  val Seq(v1_6, v1_7, v1_8) =
+  private[this] val Seq(v1_6, v1_7, v1_8) =
     Seq("6", "7", "8").map(minor =>
       LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor.Stable(minor)))
+
+  private[this] val v1_dev = LanguageVersion(LanguageVersion.Major.V1, LanguageVersion.Minor.Dev)
 
   private[this] final class ModBuilder(languageVersion: LanguageVersion) {
 
@@ -179,5 +181,55 @@ final class CompiledPackageSpec extends WordSpec with Matchers with TableDrivenP
         }
       }
     }
+
+  "Engine#addpackage" should {
+
+    def engine(min: LanguageVersion, max: LanguageVersion) =
+      new Engine(
+        EngineConfig.assertBuild(
+          VersionRange(min, max),
+          EngineConfig.Stable.inputTransactionVersions,
+          EngineConfig.Stable.outputTransactionVersions,
+        )
+      )
+
+    val Seq(pkg1_6, pkg1_7, pkg1_8, pkg1_dev) = Seq(v1_6, v1_7, v1_8, v1_dev).map(
+      v => PkgBuilder(ModBuilder(v))
+    )
+
+    "accept allowed language versions" in {
+
+      val negativeTestCases = Table(
+        ("min version", "max version", "actual Version"),
+        (v1_6, v1_8, pkg1_6),
+        (v1_6, v1_8, pkg1_7),
+        (v1_6, v1_8, pkg1_8),
+        (v1_8, v1_8, pkg1_8),
+        (v1_6, v1_dev, pkg1_dev),
+      )
+
+      forEvery(negativeTestCases)(
+        (min, max, pkg) => engine(min, max).addPackage(pkg.id, pkg.build) shouldBe a[ResultDone[_]]
+      )
+
+    }
+
+    "reject disallowed language versions" in {
+      val positiveTestsCases = Table(
+        ("min version", "max version", "actual Version"),
+        (v1_6, v1_6, pkg1_7),
+        (v1_7, v1_8, pkg1_6),
+        (v1_6, v1_7, pkg1_8),
+        (v1_8, v1_8, pkg1_7),
+        (v1_6, v1_8, pkg1_dev),
+      )
+
+      forEvery(positiveTestsCases) { (min, max, pkg) =>
+        val result = engine(min, max).addPackage(pkg.id, pkg.build)
+        result shouldBe a[ResultError]
+        result.asInstanceOf[ResultError].err.msg should include("Disallowed language version")
+      }
+    }
+  }
 
 }
