@@ -172,6 +172,7 @@ object TriggerServiceFixture {
       ledgerConfig = LedgerConfig(
         host.getHostName,
         ledgerProxyPort.value,
+        ledgerId,
         TimeProviderType.Static,
         Duration.ofSeconds(30),
         ServiceConfig.DefaultMaxInboundMessageSize,
