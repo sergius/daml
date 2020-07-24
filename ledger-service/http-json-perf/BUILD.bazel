@@ -35,6 +35,13 @@ da_scala_library(
       "@maven//:org_slf4j_slf4j_api",
       "@maven//:com_typesafe_akka_akka_actor_2_12",
       "@maven//:org_scalaz_scalaz_core_2_12",
+      "@maven//:io_gatling_gatling_core",
+      "@maven//:io_gatling_gatling_commons",
+      "@maven//:io_gatling_gatling_http",
+      "@maven//:io_gatling_gatling_http_client",
+
+#      "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
+
 #      "@maven//:com_typesafe_akka_akka_http_2_12",
 #      "@maven//:com_typesafe_akka_akka_http_core_2_12",
 
@@ -57,8 +64,7 @@ da_scala_library(
 
 
 #        "@maven//:io_spray_spray_json_2_12",
-#        "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
-#        "@maven//:org_scalaz_scalaz_core_2_12",
+
     ],
 )
 
@@ -72,25 +78,20 @@ da_scala_binary(
     ],
     visibility = ["//visibility:public"],
     deps = [
-        ":http-json-perf",
-        "//ledger-service/http-json",
-        "//libs-scala/ports",
-        "//ledger-service/jwt",
-        "@maven//:com_github_scopt_scopt_2_12",
-        "@maven//:ch_qos_logback_logback_classic",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-        "@maven//:org_slf4j_slf4j_api",
-        "@maven//:com_typesafe_akka_akka_actor_2_12",
-        "@maven//:org_scalaz_scalaz_core_2_12",
-#        "@maven//:com_typesafe_akka_akka_http_2_12",
-#        "@maven//:com_typesafe_akka_akka_http_core_2_12",
-
-#        "@maven//:com_typesafe_akka_akka_http_spray_json_2_12",
-#        "@maven//:com_typesafe_akka_akka_slf4j_2_12",
-#        "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
-#        "@maven//:io_spray_spray_json_2_12",
-#        "@maven//:org_scala_lang_modules_scala_collection_compat_2_12",
-
+      ":http-json-perf",
+      "//ledger-service/http-json",
+      "//libs-scala/ports",
+      "//ledger-service/jwt",
+      "@maven//:com_github_scopt_scopt_2_12",
+      "@maven//:ch_qos_logback_logback_classic",
+      "@maven//:com_typesafe_scala_logging_scala_logging_2_12",
+      "@maven//:org_slf4j_slf4j_api",
+      "@maven//:com_typesafe_akka_akka_actor_2_12",
+      "@maven//:org_scalaz_scalaz_core_2_12",
+      "@maven//:io_gatling_gatling_core",
+      "@maven//:io_gatling_gatling_commons",
+      "@maven//:io_gatling_gatling_http",
+      "@maven//:io_gatling_gatling_http_client",
     ],
 )
 
