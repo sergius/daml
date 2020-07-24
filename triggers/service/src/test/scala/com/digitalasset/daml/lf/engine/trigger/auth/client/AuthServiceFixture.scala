@@ -75,10 +75,7 @@ object AuthServiceFixture {
           channel <- Future(new Socket(host, port.value))
         } yield channel.close()
       }
-      authServiceBaseUrl = Uri.from(
-        scheme = "http",
-        host = host.getHostAddress,
-        port = port.value)
+      authServiceBaseUrl = Uri.from(scheme = "http", host = host.getHostAddress, port = port.value)
     } yield (process, authServiceBaseUrl)
 
     val testF: Future[A] = for {
