@@ -4,13 +4,12 @@
 package com.daml.http.perf
 
 import akka.actor.ActorSystem
+import com.daml.http.Statement.discard
 import com.typesafe.scalalogging.StrictLogging
 
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, _}
 import scala.concurrent.{Await, ExecutionContext, Future}
-import com.daml.http.Statement.discard
 import scala.util.{Failure, Success}
-import scala.concurrent.duration._
 
 object Main extends StrictLogging {
 

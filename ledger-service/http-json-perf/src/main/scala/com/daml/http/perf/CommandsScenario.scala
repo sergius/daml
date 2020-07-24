@@ -7,7 +7,7 @@ import scala.concurrent.Future
 object CommandsScenario extends StrictLogging {
 
   def run(config: Config): Future[Unit] = Future.successful {
-    logger.debug(s"Started scenario: $config")
+    logger.debug(s"Started scenario: ${config.scenario}")
     ()
   }
 
